@@ -2,11 +2,12 @@ import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
-import { parseDocument } from '@/lib/documentParser';
+import { extractTextFromFile, getFileIcon } from '@/lib/documentParser';
 import { DocumentSidebar } from '@/components/DocumentSidebar';
 import { ChatArea } from '@/components/ChatArea';
 import { ChatInput } from '@/components/ChatInput';
 
+const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`;
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 
 const Index = () => {
@@ -20,13 +21,39 @@ const Index = () => {
     setIsUploading(true);
     
     try {
-      // Parse the document
       toast({
         title: 'Processing document...',
         description: 'Extracting text and analyzing content',
       });
 
-      const contentText = await parseDocument(file);
+      let contentText = '';
+      
+      // Try client-side extraction first
+      const clientText = await extractTextFromFile(file);
+      
+      if (clientText === 'REQUIRES_SERVER_PARSING') {
+        // Use server-side parsing for PDF/DOCX
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const parseResponse = await fetch(PARSE_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        });
+        
+        const parseResult = await parseResponse.json();
+        
+        if (!parseResult.success) {
+          throw new Error(parseResult.error || 'Failed to parse document');
+        }
+        
+        contentText = parseResult.content;
+      } else {
+        contentText = clientText;
+      }
       
       if (!contentText || contentText.length < 20) {
         throw new Error('Could not extract meaningful text from the document');
@@ -54,7 +81,6 @@ const Index = () => {
       const decoder = new TextDecoder();
       let fullResponse = '';
       
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -78,7 +104,6 @@ const Index = () => {
       // Parse the JSON response
       let summary;
       try {
-        // Find JSON in the response
         const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           summary = JSON.parse(jsonMatch[0]);
@@ -86,7 +111,6 @@ const Index = () => {
           throw new Error('No JSON found');
         }
       } catch {
-        // Fallback if parsing fails
         summary = {
           documentType: 'Document',
           summary: fullResponse.slice(0, 200),
