@@ -1,21 +1,69 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
-import { extractTextFromFile, getFileIcon } from '@/lib/documentParser';
-import { DocumentSidebar } from '@/components/DocumentSidebar';
+import { useChatSessions } from '@/hooks/useChatSessions';
+import { useAuth } from '@/hooks/useAuth';
+import { extractTextFromFile } from '@/lib/documentParser';
+import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatArea } from '@/components/ChatArea';
 import { ChatInput } from '@/components/ChatInput';
+import { supabase } from '@/integrations/supabase/client';
 
 const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`;
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 
 const Index = () => {
+  const { isLoggedIn, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { documents, loading: docsLoading, uploadDocument, deleteDocument } = useDocuments();
-  const { messages, isLoading, sendMessage, clearMessages } = useChat();
+  const { messages, isLoading, sendMessage, clearMessages, setMessages } = useChat();
+  const {
+    sessions,
+    currentSessionId,
+    setCurrentSessionId,
+    loading: sessionsLoading,
+    createSession,
+    updateSessionTitle,
+    deleteSession,
+    generateTitle,
+  } = useChatSessions();
+  
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Load messages when session changes
+  useEffect(() => {
+    if (!currentSessionId) {
+      clearMessages();
+      return;
+    }
+
+    const loadMessages = async () => {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', currentSessionId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading messages:', error);
+        return;
+      }
+
+      if (data) {
+        setMessages(data.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          documentId: msg.document_id || undefined,
+          createdAt: new Date(msg.created_at),
+        })));
+      }
+    };
+
+    loadMessages();
+  }, [currentSessionId, clearMessages, setMessages]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -28,11 +76,9 @@ const Index = () => {
 
       let contentText = '';
       
-      // Try client-side extraction first
       const clientText = await extractTextFromFile(file);
       
       if (clientText === 'REQUIRES_SERVER_PARSING') {
-        // Use server-side parsing for PDF/DOCX
         const formData = new FormData();
         formData.append('file', file);
         
@@ -59,7 +105,6 @@ const Index = () => {
         throw new Error('Could not extract meaningful text from the document');
       }
 
-      // Get AI summary
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
@@ -74,7 +119,6 @@ const Index = () => {
 
       if (!response.ok) throw new Error('Failed to analyze document');
 
-      // Parse streaming response
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No response');
 
@@ -101,7 +145,6 @@ const Index = () => {
         }
       }
 
-      // Parse the JSON response
       let summary;
       try {
         const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
@@ -118,7 +161,6 @@ const Index = () => {
         };
       }
 
-      // Save to database
       const savedDoc = await uploadDocument(file, contentText, summary);
       
       if (savedDoc) {
@@ -140,7 +182,7 @@ const Index = () => {
     }
   }, [toast, uploadDocument]);
 
-  const handleSendMessage = useCallback((message: string) => {
+  const handleSendMessage = useCallback(async (message: string) => {
     if (!selectedDocument) {
       toast({
         title: 'No document selected',
@@ -149,8 +191,39 @@ const Index = () => {
       });
       return;
     }
-    sendMessage(message, selectedDocument);
-  }, [selectedDocument, sendMessage, toast]);
+
+    let sessionId = currentSessionId;
+
+    // Create new session if needed
+    if (!sessionId) {
+      const newSession = await createSession(generateTitle(message));
+      if (!newSession) return;
+      sessionId = newSession.id;
+    } else if (messages.length === 0) {
+      // Update title with first message
+      await updateSessionTitle(sessionId, generateTitle(message));
+    }
+
+    // Save user message to DB
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      role: 'user',
+      content: message,
+      document_id: selectedDocument.id,
+    });
+
+    const response = await sendMessage(message, selectedDocument);
+
+    // Save assistant response to DB
+    if (response) {
+      await supabase.from('chat_messages').insert({
+        session_id: sessionId,
+        role: 'assistant',
+        content: response,
+        document_id: selectedDocument.id,
+      });
+    }
+  }, [selectedDocument, sendMessage, toast, currentSessionId, createSession, updateSessionTitle, generateTitle, messages.length]);
 
   const handleGenerateFaq = useCallback(async (count: number) => {
     if (!selectedDocument) return;
@@ -165,22 +238,40 @@ const Index = () => {
     }
   }, [selectedDocument, sendMessage, toast]);
 
-  const handleSelectDocument = useCallback((doc: Document | null) => {
-    setSelectedDocument(doc);
-    if (doc && messages.length > 0) {
-      clearMessages();
-    }
-  }, [messages.length, clearMessages]);
+  const handleNewChat = useCallback(() => {
+    setCurrentSessionId(null);
+    clearMessages();
+    setSelectedDocument(null);
+  }, [setCurrentSessionId, clearMessages]);
+
+  const handleSelectSession = useCallback((id: string | null) => {
+    setCurrentSessionId(id);
+  }, [setCurrentSessionId]);
+
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="h-screen flex bg-background">
-      {/* Sidebar */}
-      <DocumentSidebar
+      {/* Sidebar with Chat History */}
+      <ChatSidebar
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
+        onDeleteSession={deleteSession}
         documents={documents}
-        selectedDocument={selectedDocument}
-        onSelectDocument={handleSelectDocument}
         onDeleteDocument={deleteDocument}
-        loading={docsLoading}
+        loading={sessionsLoading || docsLoading}
       />
 
       {/* Main Chat Area */}

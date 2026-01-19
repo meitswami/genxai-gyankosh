@@ -145,12 +145,13 @@ export function useChat() {
     });
   };
 
-  const clearMessages = () => setMessages([]);
+const clearMessages = () => setMessages([]);
 
   return {
     messages,
     isLoading,
     sendMessage,
     clearMessages,
+    setMessages,
   };
 }
