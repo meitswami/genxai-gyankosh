@@ -1,0 +1,128 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+export interface Document {
+  id: string;
+  name: string;
+  alias: string;
+  summary: string | null;
+  file_path: string;
+  file_type: string;
+  file_size: number | null;
+  content_text: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useDocuments() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchDocuments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load documents',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadDocument = async (
+    file: File,
+    contentText: string,
+    summary: { documentType: string; summary: string; alias: string }
+  ): Promise<Document | null> => {
+    try {
+      // Upload file to storage
+      const filePath = `${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Save document metadata
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({
+          name: file.name,
+          alias: summary.alias,
+          summary: `${summary.documentType}: ${summary.summary}`,
+          file_path: filePath,
+          file_type: file.type || 'unknown',
+          file_size: file.size,
+          content_text: contentText,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setDocuments(prev => [data, ...prev]);
+      return data;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast({
+        title: 'Upload Failed',
+        description: 'Could not save document to knowledge base',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
+    try {
+      const doc = documents.find(d => d.id === id);
+      if (doc) {
+        await supabase.storage.from('documents').remove([doc.file_path]);
+      }
+
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setDocuments(prev => prev.filter(d => d.id !== id));
+      toast({
+        title: 'Document Deleted',
+        description: 'Removed from knowledge base',
+      });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete document',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  return {
+    documents,
+    loading,
+    uploadDocument,
+    deleteDocument,
+    refetch: fetchDocuments,
+  };
+}
