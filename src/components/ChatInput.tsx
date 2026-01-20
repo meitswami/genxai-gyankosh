@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, Loader2, ListOrdered } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Image } from 'lucide-react';
+import { getSupportedFileTypes, getSupportedFileTypesLabel } from '@/lib/documentParser';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -179,7 +180,7 @@ export function ChatInput({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".txt,.pdf,.doc,.docx"
+            accept={getSupportedFileTypes()}
             onChange={handleFileChange}
             className="hidden"
           />
@@ -231,7 +232,7 @@ export function ChatInput({
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Supports PDF, DOCX, DOC, TXT • Hindi, English & Hinglish
+          Supports {getSupportedFileTypesLabel()} • Hindi, English & Hinglish
         </p>
       </div>
     </div>
