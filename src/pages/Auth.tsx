@@ -130,6 +130,9 @@ export default function Auth() {
             <CardDescription className="text-muted-foreground mt-1">
               Treasury of Knowledge
             </CardDescription>
+            <p className="text-xs text-muted-foreground/70 mt-2">
+              Gyankosh in Hindi or English by GenXAI
+            </p>
           </div>
         </CardHeader>
         <CardContent>
