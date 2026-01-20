@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
@@ -8,6 +9,9 @@ import { extractTextFromFile } from '@/lib/documentParser';
 import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatArea } from '@/components/ChatArea';
 import { ChatInput } from '@/components/ChatInput';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { DocumentPreview } from '@/components/DocumentPreview';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
 const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`;
@@ -31,6 +35,7 @@ const Index = () => {
   
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Load messages when session changes
   useEffect(() => {
@@ -315,8 +320,8 @@ const Index = () => {
         {/* Header */}
         <header className="border-b border-border bg-card/50 px-6 py-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-medium text-foreground">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-medium text-foreground truncate">
                 {selectedDocument 
                   ? `Chatting with: ${selectedDocument.alias}` 
                   : 'Select or upload a document'
@@ -327,6 +332,20 @@ const Index = () => {
                   {selectedDocument.summary}
                 </p>
               )}
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              {selectedDocument && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="gap-1.5"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">{showPreview ? 'Hide' : 'Preview'}</span>
+                </Button>
+              )}
+              <ThemeToggle />
             </div>
           </div>
         </header>
@@ -346,6 +365,14 @@ const Index = () => {
           isUploading={isUploading}
         />
       </main>
+
+      {/* Document Preview Panel */}
+      {showPreview && (
+        <DocumentPreview
+          document={selectedDocument}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Bot, User, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FAQRenderer, isFAQContent } from '@/components/FAQRenderer';
+import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import type { ChatMessage } from '@/hooks/useChat';
 
 interface ChatAreaProps {
@@ -77,6 +78,8 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
               )}
               {message.role === 'assistant' && isFAQContent(message.content) ? (
                 <FAQRenderer content={message.content} documentName={message.documentName} />
+              ) : message.role === 'assistant' ? (
+                <MarkdownRenderer content={message.content} />
               ) : (
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">
                   {message.content}
