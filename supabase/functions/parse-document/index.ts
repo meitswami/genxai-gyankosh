@@ -24,15 +24,79 @@ serve(async (req) => {
     const fileName = file.name.toLowerCase();
     let textContent = "";
 
+    console.log(`Parsing file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+
     // Handle different file types
     if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
       textContent = await file.text();
-    } else if (fileName.endsWith(".pdf")) {
-      textContent = await extractPdfText(file);
-    } else if (fileName.endsWith(".docx")) {
-      textContent = await extractDocxText(file);
-    } else if (fileName.endsWith(".doc")) {
-      textContent = await extractDocText(file);
+      console.log("Extracted text file content, length:", textContent.length);
+    } else if (fileName.endsWith(".pdf") || fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+      // Use Lovable's document parsing API for complex documents
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      
+      if (!LOVABLE_API_KEY) {
+        console.log("LOVABLE_API_KEY not available, falling back to basic extraction");
+        textContent = await basicTextExtraction(file);
+      } else {
+        try {
+          // Convert file to base64
+          const arrayBuffer = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          
+          console.log("Calling Lovable AI for document extraction...");
+          
+          // Use AI to extract text by describing what we see
+          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a document text extractor. Extract and return ONLY the readable text content from the document data provided. 
+Do not include any analysis, just the raw text content. 
+Preserve the original language (Hindi, English, Hinglish, etc.).
+If the document appears to be an identity document, extract all visible text fields.
+Format output as clean, readable text.`
+                },
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "file",
+                      file: {
+                        filename: file.name,
+                        file_data: `data:${file.type || "application/pdf"};base64,${base64}`
+                      }
+                    },
+                    {
+                      type: "text",
+                      text: "Extract all readable text from this document. Return only the text content, no analysis."
+                    }
+                  ]
+                }
+              ],
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            textContent = result.choices?.[0]?.message?.content || "";
+            console.log("AI extraction successful, content length:", textContent.length);
+          } else {
+            const errText = await response.text();
+            console.error("AI extraction failed:", response.status, errText);
+            textContent = await basicTextExtraction(file);
+          }
+        } catch (aiError) {
+          console.error("AI extraction error:", aiError);
+          textContent = await basicTextExtraction(file);
+        }
+      }
     } else {
       // Try to read as plain text
       try {
@@ -47,11 +111,13 @@ serve(async (req) => {
       .replace(/\s+/g, " ")
       .trim();
 
+    console.log("Final content length:", textContent.length);
+
     if (textContent.length < 20) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Could not extract meaningful text from the document. Please try a different file format.",
+          error: "Could not extract meaningful text from the document. The file may be scanned or image-based. Please try uploading a text-based document.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -76,133 +142,71 @@ serve(async (req) => {
   }
 });
 
-async function extractPdfText(file: File): Promise<string> {
+async function basicTextExtraction(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
-  
-  // Simple PDF text extraction
-  // Look for text between stream/endstream and BT/ET markers
-  const textBytes = new TextDecoder("latin1").decode(bytes);
+  const fileName = file.name.toLowerCase();
   
   let extractedText = "";
   
-  // Method 1: Extract text from between parentheses (common PDF text format)
-  const textMatches = textBytes.matchAll(/\(([^)]+)\)/g);
-  for (const match of textMatches) {
-    const text = match[1];
-    // Filter out obvious non-text
-    if (text.length > 1 && !/^[\\\/\d\s.]+$/.test(text)) {
-      extractedText += text + " ";
-    }
-  }
-  
-  // Method 2: Look for Tj and TJ operators (PDF text show operators)
-  const tjMatches = textBytes.matchAll(/\[([^\]]+)\]\s*TJ/g);
-  for (const match of tjMatches) {
-    const content = match[1];
-    const innerMatches = content.matchAll(/\(([^)]+)\)/g);
-    for (const inner of innerMatches) {
-      if (inner[1].length > 0) {
-        extractedText += inner[1];
-      }
-    }
-    extractedText += " ";
-  }
-  
-  // Method 3: Extract readable ASCII text sequences
-  let currentWord = "";
-  for (let i = 0; i < bytes.length; i++) {
-    const char = bytes[i];
-    // Include ASCII printable chars, Devanagari, and common punctuation
-    if ((char >= 32 && char <= 126) || (char >= 0xC0 && char <= 0xFF)) {
-      currentWord += String.fromCharCode(char);
-    } else if (currentWord.length > 3) {
-      // Filter out likely binary data
-      if (!/^[\d.]+$/.test(currentWord) && !/obj|endobj|stream|xref/.test(currentWord)) {
-        extractedText += currentWord + " ";
-      }
-      currentWord = "";
-    } else {
-      currentWord = "";
-    }
-  }
-  
-  // Clean up the extracted text
-  extractedText = extractedText
-    .replace(/\\[nrt]/g, " ")
-    .replace(/[^\x20-\x7E\u0900-\u097F\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  
-  // Remove duplicates and very short fragments
-  const words = extractedText.split(" ").filter(w => w.length > 2);
-  const uniqueWords = [...new Set(words)];
-  
-  return uniqueWords.join(" ");
-}
-
-async function extractDocxText(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  
-  // DOCX is a ZIP file containing XML
-  // We'll look for text content in the XML
-  const textBytes = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  
-  let extractedText = "";
-  
-  // Look for text between XML tags, specifically <w:t> tags
-  const wtMatches = textBytes.matchAll(/<w:t[^>]*>([^<]+)<\/w:t>/g);
-  for (const match of wtMatches) {
-    extractedText += match[1] + " ";
-  }
-  
-  // Also look for generic text between > and <
-  if (extractedText.length < 50) {
-    const genericMatches = textBytes.matchAll(/>([^<]{2,})</g);
-    for (const match of genericMatches) {
-      const text = match[1].trim();
-      // Filter out XML-like content
-      if (text && !/^[\d.]+$/.test(text) && !/xmlns|w:|xml/.test(text)) {
+  if (fileName.endsWith(".pdf")) {
+    // Try to extract text from PDF text objects
+    const textBytes = new TextDecoder("latin1").decode(bytes);
+    
+    // Look for text between parentheses in PDF
+    const textMatches = textBytes.matchAll(/\(([^)]{2,})\)/g);
+    for (const match of textMatches) {
+      const text = match[1]
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "")
+        .replace(/\\/g, "");
+      if (text.length > 1 && /[a-zA-Z\u0900-\u097F]/.test(text)) {
         extractedText += text + " ";
       }
     }
-  }
-  
-  return extractedText.trim();
-}
-
-async function extractDocText(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  
-  // Old .doc format - extract readable text sequences
-  let extractedText = "";
-  let currentWord = "";
-  
-  for (let i = 0; i < bytes.length; i++) {
-    const char = bytes[i];
     
-    // Look for readable ASCII and extended chars
-    if ((char >= 32 && char <= 126) || (char >= 0xC0 && char <= 0xFF)) {
-      currentWord += String.fromCharCode(char);
-    } else if (currentWord.length > 3) {
-      extractedText += currentWord + " ";
-      currentWord = "";
-    } else {
-      currentWord = "";
+    // Also look for TJ operator content
+    const tjMatches = textBytes.matchAll(/\[([^\]]+)\]\s*TJ/g);
+    for (const match of tjMatches) {
+      const innerMatches = match[1].matchAll(/\(([^)]+)\)/g);
+      for (const inner of innerMatches) {
+        if (/[a-zA-Z\u0900-\u097F]/.test(inner[1])) {
+          extractedText += inner[1];
+        }
+      }
+      extractedText += " ";
     }
-  }
-  
-  if (currentWord.length > 3) {
-    extractedText += currentWord;
+  } else if (fileName.endsWith(".docx")) {
+    const textBytes = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    const wtMatches = textBytes.matchAll(/<w:t[^>]*>([^<]+)<\/w:t>/g);
+    for (const match of wtMatches) {
+      extractedText += match[1] + " ";
+    }
+  } else {
+    // Generic text extraction
+    let currentWord = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const char = bytes[i];
+      if ((char >= 32 && char <= 126)) {
+        currentWord += String.fromCharCode(char);
+      } else if (currentWord.length > 3) {
+        extractedText += currentWord + " ";
+        currentWord = "";
+      } else {
+        currentWord = "";
+      }
+    }
+    if (currentWord.length > 3) {
+      extractedText += currentWord;
+    }
   }
   
   // Clean up
   extractedText = extractedText
-    .replace(/[^\x20-\x7E\u0900-\u097F\s]/g, " ")
+    .replace(/[^\x20-\x7E\u0900-\u097F\s.,!?()-:;'"]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   
+  console.log("Basic extraction result length:", extractedText.length);
   return extractedText;
 }

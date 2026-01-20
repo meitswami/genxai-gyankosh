@@ -22,20 +22,21 @@ serve(async (req) => {
     let userMessages = messages || [];
 
     if (action === "summarize") {
-      systemPrompt = `You are an expert document analyzer. You will receive the content of a document. 
-Your task is to:
-1. Identify what type of document this is
-2. Provide a brief 2-3 line summary of what the document contains
-3. Create a short, memorable alias name for the document (2-4 words in the document's primary language)
+      systemPrompt = `You are an expert document analyzer. Analyze the provided document content and return a JSON response.
 
-Respond in the same language as the document (Hindi, English, or Hinglish).
-Format your response as JSON with these fields:
-{
-  "documentType": "type of document",
-  "summary": "brief summary",
-  "alias": "short alias name"
-}`;
-      userMessages = [{ role: "user", content: `Analyze this document:\n\n${documentContent}` }];
+Your task:
+1. Identify the document type (e.g., "Identity Document", "Government Form", "Legal Contract", "Academic Paper", etc.)
+2. Write a clear 2-3 sentence summary of what the document contains
+3. Create a short memorable alias (2-4 words in the document's primary language)
+
+IMPORTANT: 
+- Respond in the same language as the document (Hindi, English, or Hinglish)
+- Return ONLY a valid JSON object, no markdown formatting
+- If the content seems corrupted or unreadable, still provide your best analysis
+
+JSON format:
+{"documentType": "type", "summary": "brief summary", "alias": "short name"}`;
+      userMessages = [{ role: "user", content: `Analyze this document content and provide a JSON summary:\n\n${documentContent}` }];
     } else if (action === "generateFaq") {
       systemPrompt = `You are an expert at creating FAQs from documents. 
 Generate exactly ${faqCount || 5} frequently asked questions and their answers based on the document content.
