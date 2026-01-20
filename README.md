@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+# ज्ञानकोष (Gyaankosh) - AI Document Knowledge Base
 
-## Project info
+**ज्ञानकोष** (Gyaankosh, meaning "Treasury of Knowledge") is an AI-powered document knowledge base that lets you upload documents and interact with them using natural language in Hindi, English, or Hinglish.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## ✨ Features
 
-## How can I edit this code?
+- **📚 Document Upload**: Support for PDF, DOCX, DOC, and TXT files
+- **💬 Multilingual Chat**: Ask questions in Hindi, English, or Hinglish with 100% accuracy
+- **🤖 AI-Powered Responses**: Get intelligent answers based on your document content
+- **📝 FAQ Generation**: Automatically generate FAQs from your documents with collapsible accordions
+- **📋 Export Options**: Copy FAQs to clipboard or download as text files
+- **💾 Chat History**: Auto-save conversations with smart naming like ChatGPT
+- **🔐 Simple Authentication**: Quick login to get started
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+- **Frontend**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS, shadcn/ui
+- **Backend**: Lovable Cloud (Supabase)
+- **AI**: Google Gemini via Lovable AI Gateway
+- **Database**: PostgreSQL with Row Level Security
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 🚀 Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+ & npm
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Local Development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to project directory
+cd gyaankosh
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Default Login Credentials
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- **Username**: `demo`
+- **Password**: `demo123`
 
-**Use GitHub Codespaces**
+## 📖 Usage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. **Login** with the demo credentials
+2. **Upload a document** using the attachment button or drag-and-drop
+3. **Select a document** by typing `#` in the chat input
+4. **Ask questions** about your document in any language
+5. **Generate FAQs** using the "Generate FAQ" button
+6. **Export FAQs** by copying to clipboard or downloading
 
-## What technologies are used for this project?
+## 🏗️ Project Structure
 
-This project is built with:
+```
+src/
+├── components/       # React components
+│   ├── ui/          # shadcn/ui components
+│   ├── ChatArea.tsx # Main chat display
+│   ├── ChatInput.tsx # Message input with document selector
+│   ├── ChatSidebar.tsx # Chat history & knowledge base
+│   └── FAQRenderer.tsx # FAQ display with accordions
+├── hooks/           # Custom React hooks
+│   ├── useAuth.ts   # Authentication state
+│   ├── useChat.ts   # Chat messaging logic
+│   ├── useChatSessions.ts # Session management
+│   └── useDocuments.ts # Document CRUD operations
+├── pages/           # Route pages
+├── lib/             # Utilities
+└── integrations/    # Supabase client
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔧 Configuration
 
-## How can I deploy this project?
+The project uses Lovable Cloud for backend services. All configuration is handled automatically.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 📄 License
 
-## Can I connect a custom domain to my Lovable project?
+This project is open source and available under the MIT License.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Built with ❤️ using [Lovable](https://lovable.dev)

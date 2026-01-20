@@ -126,7 +126,7 @@ export function useChat() {
     }
   }, [toast]);
 
-  const updateAssistantMessage = (content: string, document: Document | null) => {
+  const updateAssistantMessage = useCallback((content: string, document: Document | null) => {
     setMessages(prev => {
       const last = prev[prev.length - 1];
       if (last?.role === 'assistant') {
@@ -136,14 +136,14 @@ export function useChat() {
       }
       return [...prev, {
         id: crypto.randomUUID(),
-        role: 'assistant',
+        role: 'assistant' as const,
         content,
         documentId: document?.id,
         documentName: document?.alias,
         createdAt: new Date(),
       }];
     });
-  };
+  }, []);
 
 const clearMessages = () => setMessages([]);
 
