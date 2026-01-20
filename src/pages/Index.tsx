@@ -84,13 +84,20 @@ const Index = () => {
       const clientText = await extractTextFromFile(file);
       
       if (clientText === 'REQUIRES_SERVER_PARSING') {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          throw new Error('Not authenticated. Please log in.');
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         
         const parseResponse = await fetch(PARSE_URL, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token}`,
           },
           body: formData,
         });
@@ -110,11 +117,19 @@ const Index = () => {
         throw new Error('Could not extract meaningful text from the document');
       }
 
+      // Get fresh token for chat call
+      const { data: { session: chatSession } } = await supabase.auth.getSession();
+      const chatToken = chatSession?.access_token;
+      
+      if (!chatToken) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${chatToken}`,
         },
         body: JSON.stringify({
           documentContent: contentText.slice(0, 10000),
