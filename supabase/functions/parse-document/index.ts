@@ -53,7 +53,7 @@ serve(async (req) => {
       }
     }
 
-    // Clean up extracted text
+    // Clean up extracted text - preserve Hindi and other Unicode characters
     textContent = textContent
       .replace(/\s+/g, " ")
       .trim();
@@ -96,6 +96,18 @@ function isImageFile(fileName: string, fileType: string): boolean {
   return imageExtensions.some(ext => fileName.endsWith(ext)) || imageTypes.includes(fileType);
 }
 
+// Safe base64 encoding for large files - avoids stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 32768; // Process in chunks to avoid stack overflow
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 async function extractTextFromImageWithAI(file: File): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   
@@ -106,10 +118,10 @@ async function extractTextFromImageWithAI(file: File): Promise<string> {
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64 = arrayBufferToBase64(arrayBuffer);
     const mimeType = file.type || "image/jpeg";
 
-    console.log("Calling AI for image OCR...");
+    console.log("Calling AI for image OCR (multilingual support)...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -122,17 +134,20 @@ async function extractTextFromImageWithAI(file: File): Promise<string> {
         messages: [
           {
             role: "system",
-            content: `You are an expert OCR (Optical Character Recognition) system. Extract ALL text from the image provided.
+            content: `You are an expert multilingual OCR (Optical Character Recognition) system with strong support for Indian languages including Hindi (हिंदी), Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada, Malayalam, and other Devanagari/regional scripts.
 
-Instructions:
-- Extract every piece of text visible in the image
-- Preserve the original language (Hindi, English, Hinglish, or any other language)
-- Maintain the structure and order of the text as it appears
-- For identity documents, extract all fields: name, ID numbers, dates, addresses, etc.
-- For forms, extract all labels and their values
-- Do NOT summarize or analyze - just extract the raw text content
-- If text is partially visible or unclear, make your best attempt
-- Return ONLY the extracted text, nothing else`
+CRITICAL INSTRUCTIONS:
+- Extract ALL text visible in the image, regardless of language
+- PRESERVE the original script and language - do NOT transliterate Hindi to English
+- Hindi text must remain in Devanagari script (देवनागरी)
+- Maintain the exact text as written in the document
+- For mixed-language documents (Hindi + English), extract both correctly
+- Preserve document structure, reading order, and formatting
+- For identity documents (Aadhaar, PAN, Voter ID, etc.): extract ALL fields including name, ID numbers, dates, addresses in their original language
+- For government forms: extract all labels and values
+- Handle handwritten text with best effort
+- Do NOT summarize, translate, or analyze - extract raw text only
+- Return ONLY the extracted text content`
           },
           {
             role: "user",
@@ -145,7 +160,7 @@ Instructions:
               },
               {
                 type: "text",
-                text: "Perform OCR and extract all text from this image. Return only the extracted text content."
+                text: "Extract ALL text from this image. If it contains Hindi or other Indian languages, preserve the original script exactly. Return only the extracted text."
               }
             ]
           }
@@ -180,9 +195,9 @@ async function extractTextFromPdfWithAI(file: File): Promise<string> {
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64 = arrayBufferToBase64(arrayBuffer);
 
-    console.log("Calling AI for PDF extraction (with OCR support)...");
+    console.log("Calling AI for PDF extraction (multilingual OCR support)...");
 
     // Use Gemini's PDF/document understanding capability
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -196,16 +211,19 @@ async function extractTextFromPdfWithAI(file: File): Promise<string> {
         messages: [
           {
             role: "system",
-            content: `You are an expert document text extractor with OCR capabilities. Extract ALL text from the provided PDF document.
+            content: `You are an expert multilingual document text extractor with OCR capabilities. You have strong support for Indian languages including Hindi (हिंदी), Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada, Malayalam, and other Devanagari/regional scripts.
 
-Instructions:
-- Extract every piece of text from the document
+CRITICAL INSTRUCTIONS:
+- Extract ALL text from every page of the document
 - If the PDF contains scanned images, perform OCR on them
-- Preserve the original language (Hindi, English, Hinglish, or any other)
-- Maintain the structure and reading order
-- For identity documents, extract all fields: name, ID numbers, dates, addresses, etc.
-- For forms, extract labels and their filled values
-- Do NOT summarize or analyze - just extract the raw text
+- PRESERVE the original script and language - do NOT transliterate Hindi to English
+- Hindi text must remain in Devanagari script (देवनागरी)
+- For mixed-language documents (Hindi + English), extract both correctly
+- Maintain document structure and reading order
+- For identity documents (Aadhaar, PAN, Voter ID, Driving License, etc.): extract ALL fields
+- For government forms: extract all labels and values in their original language
+- Handle poor quality scans and handwritten text with best effort
+- Do NOT summarize, translate, or analyze - extract raw text only
 - Return ONLY the extracted text content`
           },
           {
@@ -220,7 +238,7 @@ Instructions:
               },
               {
                 type: "text",
-                text: "Extract all text from this PDF document. If it contains scanned images, perform OCR. Return only the extracted text."
+                text: "Extract ALL text from this PDF document. If it contains Hindi or other Indian languages, preserve the original Devanagari/regional script exactly. Perform OCR on any scanned images. Return only the extracted text."
               }
             ]
           }
@@ -265,7 +283,7 @@ async function extractTextFromDocWithAI(file: File): Promise<string> {
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64 = arrayBufferToBase64(arrayBuffer);
     const mimeType = file.name.endsWith(".docx") 
       ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       : "application/msword";
@@ -281,8 +299,9 @@ async function extractTextFromDocWithAI(file: File): Promise<string> {
         messages: [
           {
             role: "system",
-            content: `You are a document text extractor. Extract ALL text from the Word document provided.
-Preserve the original language and structure. Return ONLY the extracted text content.`
+            content: `You are a multilingual document text extractor with support for Hindi and other Indian languages.
+Extract ALL text preserving the original script (Devanagari, regional scripts, etc.). Do NOT transliterate.
+Return ONLY the extracted text content.`
           },
           {
             role: "user",
@@ -296,7 +315,7 @@ Preserve the original language and structure. Return ONLY the extracted text con
               },
               {
                 type: "text",
-                text: "Extract all text from this Word document. Return only the text content."
+                text: "Extract all text from this Word document. Preserve Hindi and other Indian language scripts exactly. Return only the text content."
               }
             ]
           }
@@ -347,9 +366,9 @@ async function basicPdfExtraction(file: File): Promise<string> {
     extractedText += " ";
   }
   
-  // Clean up
+  // Clean up - preserve Hindi/Devanagari characters
   extractedText = extractedText
-    .replace(/[^\x20-\x7E\u0900-\u097F\s.,!?()-:;'"]/g, " ")
+    .replace(/[^\x20-\x7E\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\s.,!?()-:;'"]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   
