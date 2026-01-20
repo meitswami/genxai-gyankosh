@@ -1,16 +1,21 @@
 // Browser-compatible document text extraction
-// Note: For proper PDF/DOCX parsing, we use the edge function
+// For proper PDF/DOCX/Image parsing, we use the edge function with OCR
 
 export async function extractTextFromFile(file: File): Promise<string> {
   const fileName = file.name.toLowerCase();
+  const fileType = file.type || '';
   
   // Plain text files - read directly
   if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
     return await file.text();
   }
   
-  // For PDF and DOCX, we'll send to the edge function for parsing
-  // Return a marker so the caller knows to use server-side parsing
+  // Images need OCR via server
+  if (isImageFile(fileName, fileType)) {
+    return 'REQUIRES_SERVER_PARSING';
+  }
+  
+  // For PDF and DOCX, use server-side parsing with AI
   if (fileName.endsWith('.pdf') || fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
     return 'REQUIRES_SERVER_PARSING';
   }
@@ -27,6 +32,13 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 }
 
+function isImageFile(fileName: string, fileType: string): boolean {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'];
+  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff'];
+  
+  return imageExtensions.some(ext => fileName.endsWith(ext)) || imageTypes.includes(fileType);
+}
+
 function isPrintableText(text: string): boolean {
   // Check if the text is mostly printable characters
   const printable = text.replace(/[^\x20-\x7E\u0900-\u097F\s]/g, '');
@@ -37,5 +49,14 @@ export function getFileIcon(fileType: string): string {
   if (fileType.includes('pdf')) return '📕';
   if (fileType.includes('word') || fileType.includes('doc')) return '📘';
   if (fileType.includes('text')) return '📄';
+  if (fileType.includes('image')) return '🖼️';
   return '📁';
+}
+
+export function getSupportedFileTypes(): string {
+  return '.pdf,.docx,.doc,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif';
+}
+
+export function getSupportedFileTypesLabel(): string {
+  return 'PDF, DOCX, DOC, TXT, Images (JPG, PNG, etc.)';
 }

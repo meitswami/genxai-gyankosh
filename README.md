@@ -4,13 +4,15 @@
 
 ## ✨ Features
 
-- **📚 Document Upload**: Support for PDF, DOCX, DOC, and TXT files
+- **📚 Document Upload**: Support for PDF, DOCX, DOC, TXT, and image files
+- **🔍 OCR Support**: Extract text from scanned PDFs and images (JPG, PNG, etc.)
 - **💬 Multilingual Chat**: Ask questions in Hindi, English, or Hinglish with 100% accuracy
 - **🤖 AI-Powered Responses**: Get intelligent answers based on your document content
 - **📝 FAQ Generation**: Automatically generate FAQs from your documents with collapsible accordions
 - **📋 Export Options**: Copy FAQs to clipboard or download as text files
 - **💾 Chat History**: Auto-save conversations with smart naming like ChatGPT
 - **🔐 Simple Authentication**: Quick login to get started
+- **🌙 Dark Mode**: Toggle between light and dark themes
 
 ## 🛠️ Tech Stack
 
