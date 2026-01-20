@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
@@ -18,7 +18,7 @@ const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-docum
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 
 const Index = () => {
-  const { isLoggedIn, loading: authLoading } = useAuth();
+  const { isLoggedIn, loading: authLoading, logout, user } = useAuth();
   const { toast } = useToast();
   const { documents, loading: docsLoading, uploadDocument, deleteDocument } = useDocuments();
   const { messages, isLoading, sendMessage, clearMessages, setMessages } = useChat();
@@ -362,6 +362,16 @@ const Index = () => {
                 </Button>
               )}
               <ThemeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+                title={user?.email || 'Logout'}
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
             </div>
           </div>
         </header>

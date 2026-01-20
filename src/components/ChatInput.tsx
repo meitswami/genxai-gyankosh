@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Image } from 'lucide-react';
+import { useState, useRef, useEffect, KeyboardEvent, DragEvent } from 'react';
+import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload } from 'lucide-react';
 import { getSupportedFileTypes, getSupportedFileTypesLabel } from '@/lib/documentParser';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import type { Document } from '@/hooks/useDocuments';
 
 interface ChatInputProps {
@@ -37,8 +38,10 @@ export function ChatInput({
   const [searchTerm, setSearchTerm] = useState('');
   const [showFaqPopover, setShowFaqPopover] = useState(false);
   const [faqCount, setFaqCount] = useState('5');
+  const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const filteredDocuments = documents.filter(doc =>
     doc.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,8 +102,61 @@ export function ChatInput({
     setShowFaqPopover(false);
   };
 
+  // Drag and Drop handlers
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set false if leaving the drop zone entirely
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && !isUploading) {
+      onUploadFile(files[0]);
+    }
+  };
+
   return (
-    <div className="border-t border-border bg-card/50 p-4">
+    <div 
+      ref={dropZoneRef}
+      className={cn(
+        "border-t border-border bg-card/50 p-4 relative transition-all duration-200",
+        isDragOver && "bg-primary/5 border-primary"
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg m-2 pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <Upload className="w-8 h-8 animate-bounce" />
+            <p className="font-medium">Drop your file here</p>
+            <p className="text-xs text-muted-foreground">PDF, DOCX, Images, TXT</p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto">
         {/* Selected Document Chip */}
         {selectedDocument && (
@@ -208,7 +264,7 @@ export function ChatInput({
               placeholder={
                 selectedDocument
                   ? `Ask about ${selectedDocument.alias}...`
-                  : "Type # to reference a document, or upload new documents..."
+                  : "Type # to reference a document, or drag & drop files..."
               }
               className="min-h-[44px] max-h-32 resize-none pr-12"
               rows={1}
@@ -232,7 +288,7 @@ export function ChatInput({
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Supports {getSupportedFileTypesLabel()} • Hindi, English & Hinglish
+          Drag & drop or click 📎 to upload • {getSupportedFileTypesLabel()} • Hindi, English & Hinglish
         </p>
       </div>
     </div>

@@ -62,18 +62,21 @@ export type Database = {
           id: string
           title: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -89,6 +92,7 @@ export type Database = {
           name: string
           summary: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           alias: string
@@ -101,6 +105,7 @@ export type Database = {
           name: string
           summary?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           alias?: string
@@ -113,6 +118,7 @@ export type Database = {
           name?: string
           summary?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
