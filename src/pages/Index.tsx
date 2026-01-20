@@ -36,6 +36,7 @@ const Index = () => {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
 
   // Load messages when session changes
   useEffect(() => {
@@ -72,6 +73,8 @@ const Index = () => {
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
+    const startTime = Date.now();
+    setUploadStartTime(startTime);
     
     try {
       toast({
@@ -201,9 +204,10 @@ const Index = () => {
       
       if (savedDoc) {
         setSelectedDocument(savedDoc);
+        const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
         toast({
           title: '✅ Document Added!',
-          description: `"${summary.alias}" is now in your knowledge base`,
+          description: `"${summary.alias}" processed in ${processingTime}s`,
         });
       }
     } catch (error) {
