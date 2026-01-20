@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { Bot, User, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FAQRenderer, isFAQContent } from '@/components/FAQRenderer';
 import type { ChatMessage } from '@/hooks/useChat';
 
 interface ChatAreaProps {
@@ -65,7 +66,7 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
               </div>
             )}
             
-            <div className={`max-w-[80%] ${
+            <div className={`max-w-[85%] ${
               message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
             }`}>
               {message.documentName && (
@@ -74,9 +75,13 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
                   {message.documentName}
                 </div>
               )}
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {message.content}
-              </div>
+              {message.role === 'assistant' && isFAQContent(message.content) ? (
+                <FAQRenderer content={message.content} documentName={message.documentName} />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {message.content}
+                </div>
+              )}
             </div>
 
             {message.role === 'user' && (
