@@ -152,18 +152,34 @@ const Index = () => {
 
       let summary;
       try {
-        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+        // Try to find and parse JSON in the response
+        const jsonMatch = fullResponse.match(/\{[\s\S]*?\}/);
         if (jsonMatch) {
-          summary = JSON.parse(jsonMatch[0]);
+          const parsed = JSON.parse(jsonMatch[0]);
+          summary = {
+            documentType: parsed.documentType || 'Document',
+            summary: parsed.summary || fullResponse.slice(0, 200).replace(/```json|```/g, '').trim(),
+            alias: parsed.alias || file.name.replace(/\.[^/.]+$/, '').slice(0, 30),
+          };
         } else {
           throw new Error('No JSON found');
         }
       } catch {
+        // Fallback: extract text without JSON formatting
+        const cleanedResponse = fullResponse
+          .replace(/```json|```/g, '')
+          .replace(/\{[\s\S]*?\}/g, '')
+          .trim();
         summary = {
           documentType: 'Document',
-          summary: fullResponse.slice(0, 200),
+          summary: cleanedResponse.slice(0, 200) || 'Document uploaded successfully',
           alias: file.name.replace(/\.[^/.]+$/, '').slice(0, 30),
         };
+      }
+      
+      // Validate summary fields aren't JSON-like strings
+      if (summary.summary.startsWith('```') || summary.summary.startsWith('{')) {
+        summary.summary = 'Document ready for queries';
       }
 
       const savedDoc = await uploadDocument(file, contentText, summary);
