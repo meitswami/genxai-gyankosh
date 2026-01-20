@@ -181,7 +181,7 @@ export function FAQRenderer({ content, documentName }: FAQRendererProps) {
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
                     {index + 1}
                   </span>
-                  <span className="flex-1 font-medium text-sm text-foreground leading-relaxed">
+                  <span className="flex-1 font-medium text-sm text-foreground leading-relaxed break-words">
                     {faq.question}
                   </span>
                   {openItems.has(index) ? (
