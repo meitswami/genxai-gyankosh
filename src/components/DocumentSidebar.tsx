@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Document } from '@/hooks/useDocuments';
 import { getFileIcon } from '@/lib/documentParser';
+import { format } from 'date-fns';
 
 interface DocumentSidebarProps {
   documents: Document[];
@@ -83,6 +84,9 @@ export function DocumentSidebar({
                       </h3>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {doc.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">
+                        Uploaded {format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a')}
                       </p>
                       {doc.summary && (
                         <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1">
