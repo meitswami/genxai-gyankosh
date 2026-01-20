@@ -3,10 +3,12 @@ import { MessageSquare, Plus, Trash2, BookOpen, ChevronDown, ChevronUp, LogOut }
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChatSession } from '@/hooks/useChatSessions';
 import type { Document } from '@/hooks/useDocuments';
 import { getFileIcon } from '@/lib/documentParser';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -131,37 +133,52 @@ export function ChatSidebar({
               </p>
             </div>
           ) : (
-            sessions.map((session) => (
-              <div
-                key={session.id}
-                className={`
-                  group relative rounded-lg p-3 cursor-pointer transition-all
-                  ${currentSessionId === session.id
-                    ? 'bg-primary/10 border border-primary/20'
-                    : 'hover:bg-sidebar-accent border border-transparent'
-                  }
-                `}
-                onClick={() => onSelectSession(session.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm text-sidebar-foreground truncate flex-1">
-                    {session.title}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteSession(session.id);
-                  }}
-                >
-                  <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-                </Button>
-              </div>
-            ))
+            <TooltipProvider delayDuration={300}>
+              {sessions.map((session) => (
+                <Tooltip key={session.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`
+                        group relative rounded-lg p-3 cursor-pointer transition-all
+                        ${currentSessionId === session.id
+                          ? 'bg-primary/10 border border-primary/20'
+                          : 'hover:bg-sidebar-accent border border-transparent'
+                        }
+                      `}
+                      onClick={() => onSelectSession(session.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-sidebar-foreground truncate block">
+                            {session.title}
+                          </span>
+                          {currentSessionId === session.id && (
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {format(new Date(session.created_at), 'MMM d, yyyy • h:mm a')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSession(session.id);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">
+                    Started: {format(new Date(session.created_at), 'MMM d, yyyy • h:mm a')}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
           )}
         </div>
       </ScrollArea>
