@@ -6,6 +6,7 @@ export interface ChatSession {
   title: string;
   created_at: string;
   updated_at: string;
+  user_id: string | null;
 }
 
 export function useChatSessions() {
@@ -13,7 +14,7 @@ export function useChatSessions() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all sessions
+  // Fetch all sessions for the current user
   const fetchSessions = useCallback(async () => {
     const { data, error } = await supabase
       .from('chat_sessions')
@@ -22,6 +23,7 @@ export function useChatSessions() {
 
     if (error) {
       console.error('Error fetching sessions:', error);
+      setLoading(false);
       return;
     }
 
@@ -33,11 +35,18 @@ export function useChatSessions() {
     fetchSessions();
   }, [fetchSessions]);
 
-  // Create new session
+  // Create new session with user_id
   const createSession = useCallback(async (title: string = 'New Chat') => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('No user found for session creation');
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('chat_sessions')
-      .insert({ title })
+      .insert({ title, user_id: user.id })
       .select()
       .single();
 

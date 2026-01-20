@@ -13,6 +13,7 @@ export interface Document {
   content_text: string | null;
   created_at: string;
   updated_at: string;
+  user_id: string | null;
 }
 
 export function useDocuments() {
@@ -31,11 +32,15 @@ export function useDocuments() {
       setDocuments(data || []);
     } catch (error) {
       console.error('Error fetching documents:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load documents',
-        variant: 'destructive',
-      });
+      // Only show error if user is logged in (otherwise they'll be redirected)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load documents',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -47,15 +52,26 @@ export function useDocuments() {
     summary: { documentType: string; summary: string; alias: string }
   ): Promise<Document | null> => {
     try {
-      // Upload file to storage
-      const filePath = `${Date.now()}_${file.name}`;
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: 'Error',
+          description: 'Please login to upload documents',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Upload file to storage with user_id folder structure
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Save document metadata
+      // Save document metadata with user_id
       const { data, error } = await supabase
         .from('documents')
         .insert({
@@ -66,6 +82,7 @@ export function useDocuments() {
           file_type: file.type || 'unknown',
           file_size: file.size,
           content_text: contentText,
+          user_id: user.id,
         })
         .select()
         .single();
