@@ -228,15 +228,51 @@ const Index = () => {
   const handleGenerateFaq = useCallback(async (count: number) => {
     if (!selectedDocument) return;
 
+    let sessionId = currentSessionId;
+
+    // Create new session if needed
+    if (!sessionId) {
+      const newSession = await createSession(`FAQs: ${selectedDocument.alias}`);
+      if (!newSession) return;
+      sessionId = newSession.id;
+    }
+
+    const userContent = `Generate ${count} FAQs from "${selectedDocument.alias}"`;
+    
+    // Save user message to DB
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      role: 'user',
+      content: userContent,
+      document_id: selectedDocument.id,
+    });
+
+    // Add user message to UI
+    setMessages(prev => [...prev, {
+      id: crypto.randomUUID(),
+      role: 'user' as const,
+      content: userContent,
+      documentId: selectedDocument.id,
+      createdAt: new Date(),
+    }]);
+
     const response = await sendMessage('', selectedDocument, 'generateFaq', count);
     
+    // Save assistant response to DB
     if (response) {
+      await supabase.from('chat_messages').insert({
+        session_id: sessionId,
+        role: 'assistant',
+        content: response,
+        document_id: selectedDocument.id,
+      });
+
       toast({
         title: 'FAQs Generated',
         description: `Created ${count} FAQs from ${selectedDocument.alias}`,
       });
     }
-  }, [selectedDocument, sendMessage, toast]);
+  }, [selectedDocument, sendMessage, toast, currentSessionId, createSession, setMessages]);
 
   const handleNewChat = useCallback(() => {
     setCurrentSessionId(null);
