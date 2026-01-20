@@ -21,6 +21,12 @@ interface ChatSidebarProps {
   loading: boolean;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 export function ChatSidebar({
   sessions,
   currentSessionId,
@@ -95,7 +101,7 @@ export function ChatSidebar({
                     <div className="flex-1 min-w-0">
                       <span className="truncate text-sidebar-foreground block">{doc.alias}</span>
                       <span className="text-[10px] text-muted-foreground/60">
-                        {format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a')}
+                        {format(new Date(doc.created_at), 'MMM d, yyyy')} • {doc.file_size ? formatFileSize(doc.file_size) : 'N/A'}
                       </span>
                     </div>
                     <Button
