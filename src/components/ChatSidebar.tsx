@@ -89,14 +89,19 @@ export function ChatSidebar({
                 {documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="group flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent text-sm"
+                    className="group flex items-start gap-2 p-2 rounded-md hover:bg-sidebar-accent text-sm"
                   >
-                    <span>{getFileIcon(doc.file_type)}</span>
-                    <span className="flex-1 truncate text-sidebar-foreground">{doc.alias}</span>
+                    <span className="mt-0.5">{getFileIcon(doc.file_type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate text-sidebar-foreground block">{doc.alias}</span>
+                      <span className="text-[10px] text-muted-foreground/60">
+                        {format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a')}
+                      </span>
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
                       onClick={() => onDeleteDocument(doc.id)}
                     >
                       <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
