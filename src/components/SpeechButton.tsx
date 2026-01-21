@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,49 +18,55 @@ interface SpeechButtonProps {
   className?: string;
 }
 
-export function SpeechButton({
-  isListening,
-  isSupported,
-  interimTranscript,
-  onClick,
-  disabled,
-  className,
-}: SpeechButtonProps) {
-  if (!isSupported) {
-    return null;
-  }
+export const SpeechButton = forwardRef<HTMLButtonElement, SpeechButtonProps>(
+  function SpeechButton(
+    {
+      isListening,
+      isSupported,
+      interimTranscript,
+      onClick,
+      disabled,
+      className,
+    },
+    ref
+  ) {
+    if (!isSupported) {
+      return null;
+    }
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isListening ? "default" : "outline"}
-            size="icon"
-            onClick={onClick}
-            disabled={disabled}
-            className={cn(
-              "flex-shrink-0 h-10 w-10 transition-all",
-              isListening && "bg-red-500 hover:bg-red-600 animate-pulse",
-              className
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              ref={ref}
+              variant={isListening ? "default" : "outline"}
+              size="icon"
+              onClick={onClick}
+              disabled={disabled}
+              className={cn(
+                "flex-shrink-0 h-10 w-10 transition-all",
+                isListening && "bg-red-500 hover:bg-red-600 animate-pulse",
+                className
+              )}
+            >
+              {isListening ? (
+                <MicOff className="w-4 h-4" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{isListening ? 'Stop listening' : 'Voice input (Hindi/English)'}</p>
+            {interimTranscript && (
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
+                {interimTranscript}
+              </p>
             )}
-          >
-            {isListening ? (
-              <MicOff className="w-4 h-4" />
-            ) : (
-              <Mic className="w-4 h-4" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>{isListening ? 'Stop listening' : 'Voice input (Hindi/English)'}</p>
-          {interimTranscript && (
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
-              {interimTranscript}
-            </p>
-          )}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+);

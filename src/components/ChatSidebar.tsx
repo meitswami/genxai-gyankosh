@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { MessageSquare, Plus, Trash2, BookOpen, ChevronDown, ChevronUp, LogOut, GitCompare, Search } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, BookOpen, ChevronDown, ChevronUp, LogOut, GitCompare, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -11,6 +11,7 @@ import { getFileIcon } from '@/lib/documentParser';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DocumentSearch } from '@/components/DocumentSearch';
+import { DocumentShare } from '@/components/DocumentShare';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -21,6 +22,7 @@ interface ChatSidebarProps {
   documents: Document[];
   onDeleteDocument: (id: string) => void;
   onCompareDocuments?: () => void;
+  onToggleKnowledgeBase?: () => void;
   loading: boolean;
 }
 
@@ -39,10 +41,12 @@ export function ChatSidebar({
   documents,
   onDeleteDocument,
   onCompareDocuments,
+  onToggleKnowledgeBase,
   loading,
 }: ChatSidebarProps) {
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [shareDocument, setShareDocument] = useState<Document | null>(null);
   const navigate = useNavigate();
 
   // Filter documents by search query
@@ -157,14 +161,24 @@ export function ChatSidebar({
                         </div>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
-                      onClick={() => onDeleteDocument(doc.id)}
-                    >
-                      <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-                    </Button>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                        onClick={() => setShareDocument(doc)}
+                      >
+                        <Share2 className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                        onClick={() => onDeleteDocument(doc.id)}
+                      >
+                        <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -256,6 +270,14 @@ export function ChatSidebar({
           Gyankosh supports Hindi, English & Hinglish
         </p>
       </div>
+
+      {/* Document Share Modal */}
+      {shareDocument && (
+        <DocumentShare
+          document={shareDocument}
+          onClose={() => setShareDocument(null)}
+        />
+      )}
     </aside>
   );
 }

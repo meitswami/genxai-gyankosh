@@ -24,6 +24,9 @@ interface ChatInputProps {
   onGenerateFaq: (count: number) => void;
   isLoading: boolean;
   isUploading: boolean;
+  speechButtonRef?: React.RefObject<HTMLButtonElement>;
+  focusSearch?: boolean;
+  onSearchFocusHandled?: () => void;
 }
 
 export function ChatInput({
@@ -35,6 +38,9 @@ export function ChatInput({
   onGenerateFaq,
   isLoading,
   isUploading,
+  speechButtonRef,
+  focusSearch,
+  onSearchFocusHandled,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
@@ -86,6 +92,14 @@ export function ChatInput({
     }
     setShowDocumentPicker(false);
   }, [message, selectedDocument]);
+
+  // Focus search when triggered by keyboard shortcut
+  useEffect(() => {
+    if (focusSearch && textareaRef.current) {
+      textareaRef.current.focus();
+      onSearchFocusHandled?.();
+    }
+  }, [focusSearch, onSearchFocusHandled]);
 
   const handleSelectDocumentFromPicker = (doc: Document) => {
     onSelectDocument(doc);
@@ -306,6 +320,7 @@ export function ChatInput({
 
           {/* Speech Button */}
           <SpeechButton
+            ref={speechButtonRef}
             isListening={isListening}
             isSupported={speechSupported}
             interimTranscript={interimTranscript}
