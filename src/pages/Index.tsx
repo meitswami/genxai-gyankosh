@@ -569,7 +569,12 @@ const Index = () => {
         </header>
 
         {/* Chat Messages */}
-        <ChatArea messages={messages} isLoading={isLoading} hasDocuments={documents.length > 0} />
+        <ChatArea 
+          messages={messages} 
+          isLoading={isLoading} 
+          hasDocuments={documents.length > 0} 
+          onSendMessage={handleSendMessage}
+        />
 
         {/* Input */}
         <ChatInput

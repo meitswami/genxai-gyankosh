@@ -84,6 +84,43 @@ Format as JSON array:
       // Check if this is a global search (multiple documents)
       const isGlobalSearch = documentName === 'Knowledge Base' || documentContent.includes('--- Document:');
       
+      // Rich formatting instructions for professional documents
+      const formattingInstruction = `
+
+## Formatting Guidelines:
+Use proper markdown formatting to structure your responses professionally:
+
+### For Letters, Emails & Formal Documents:
+- Start with proper salutation (Dear Sir/Madam, To Whom It May Concern, etc.)
+- Include subject line in bold: **Subject: [topic]**
+- Use proper paragraph breaks
+- End with appropriate closing (Yours sincerely, Best regards, etc.)
+- Include signature block with name/designation placeholders
+
+### For Data & Analysis:
+- Use markdown tables for tabular data:
+  | Column 1 | Column 2 | Column 3 |
+  |----------|----------|----------|
+  | Data     | Data     | Data     |
+- Use proper headings (# H1, ## H2, ### H3, etc.) for sections
+- Use **bold** for emphasis and key terms
+- Use *italics* for technical terms or document references
+- Use numbered lists (1. 2. 3.) for steps or procedures
+- Use bullet points (- or *) for features or items
+- Use > blockquotes for important notes or excerpts
+- Use \`code\` formatting for technical terms
+
+### For Professional Reports:
+- Include executive summary for long responses
+- Use clear section headings
+- Include key highlights in bold
+- Add relevant citations from documents
+
+### Text Alignment & Structure:
+- Use horizontal rules (---) to separate major sections
+- Keep paragraphs focused and well-spaced
+- Use indentation through nested lists when needed`;
+
       const suggestionInstruction = `
 
 After your main answer, add a section with 2-3 related follow-up questions the user might want to ask.
@@ -108,7 +145,8 @@ Instructions:
 - Respond in the same language as the user's question (Hindi, English, or Hinglish)
 - If the answer isn't in any document, politely say so
 - Keep answers clear, well-structured, and fast to read
-- Use bullet points or numbered lists for clarity when appropriate
+- Use proper formatting for professional appearance
+${formattingInstruction}
 ${suggestionInstruction}`;
       } else {
         systemPrompt = `You are ज्ञानकोष (Gyaankosh), a helpful AI assistant specialized in answering questions from documents.
@@ -123,6 +161,8 @@ Instructions:
 - Respond in the same language as the user's question (Hindi, English, or Hinglish)
 - If the answer is not in the document, politely say so
 - Keep answers clear and concise
+- Use proper formatting for professional appearance
+${formattingInstruction}
 ${suggestionInstruction}`;
       }
     }
