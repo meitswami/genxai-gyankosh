@@ -20,6 +20,7 @@ interface FriendsListProps {
   onRespondRequest: (requestId: string, accept: boolean) => void;
   onRemoveFriend: (userId: string) => void;
   onStartChat: (friend: UserProfile) => void;
+  getUnreadCount?: (friendId: string) => number;
 }
 
 function getStatusColor(status: string) {
@@ -44,6 +45,7 @@ export function FriendsList({
   onRespondRequest,
   onRemoveFriend,
   onStartChat,
+  getUnreadCount,
 }: FriendsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('friends');
@@ -139,7 +141,14 @@ export function FriendsList({
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{friend.display_name || 'Unknown'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{friend.display_name || 'Unknown'}</p>
+                        {getUnreadCount && getUnreadCount(friend.user_id) > 0 && (
+                          <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                            {getUnreadCount(friend.user_id)}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Circle className={`w-2 h-2 fill-current ${friend.status === 'online' ? 'text-green-500' : 'text-muted-foreground'}`} />
                         {friend.status === 'online' ? 'Online' : `Last seen ${new Date(friend.last_seen).toLocaleDateString()}`}
