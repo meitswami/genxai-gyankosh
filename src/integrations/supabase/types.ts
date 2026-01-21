@@ -798,12 +798,26 @@ export type Database = {
           friends_since: string
         }[]
       }
+      get_shared_chat_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          created_at: string
+          expires_at: string
+          id: string
+          messages_snapshot: Json
+          title: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_chat_view_count: {
+        Args: { p_token: string }
+        Returns: undefined
       }
       match_documents: {
         Args: {

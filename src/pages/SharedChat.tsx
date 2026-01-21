@@ -41,34 +41,25 @@ export default function SharedChat() {
       }
 
       try {
+        // Use secure RPC function instead of direct table access
         const { data, error: fetchError } = await supabase
-          .from('shared_chats')
-          .select('title, messages_snapshot, created_at, expires_at')
-          .eq('share_token', token)
-          .single();
+          .rpc('get_shared_chat_by_token', { p_token: token });
 
-        if (fetchError || !data) {
+        if (fetchError || !data || data.length === 0) {
           setError('Chat not found or link has expired');
           return;
         }
 
-        // Check if link has expired
-        if (data.expires_at && new Date(data.expires_at) < new Date()) {
-          setError('This share link has expired');
-          return;
-        }
+        const chatRecord = data[0];
 
         setChatData({
-          title: data.title,
-          messages_snapshot: data.messages_snapshot as unknown as SharedMessage[],
-          created_at: data.created_at,
+          title: chatRecord.title,
+          messages_snapshot: chatRecord.messages_snapshot as unknown as SharedMessage[],
+          created_at: chatRecord.created_at,
         });
 
-        // Increment view count for notifications
-        await supabase
-          .from('shared_chats')
-          .update({ view_count: ((data as any).view_count || 0) + 1 })
-          .eq('share_token', token);
+        // Increment view count using secure RPC function
+        await supabase.rpc('increment_chat_view_count', { p_token: token });
       } catch (err) {
         console.error('Error fetching shared chat:', err);
         setError('Failed to load shared chat');

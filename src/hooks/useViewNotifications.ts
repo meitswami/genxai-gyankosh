@@ -57,7 +57,8 @@ export function useViewNotifications(userId: string | undefined) {
       )
       .subscribe();
 
-    // Subscribe to shared_chats views (we'll track via a new column)
+    // Subscribe to shared_chats views - note: realtime subscriptions require appropriate RLS
+    // The owner can still receive notifications via their own SELECT policy
     const chatChannel = supabase
       .channel('shared-chat-views')
       .on(
