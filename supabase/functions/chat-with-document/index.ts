@@ -82,11 +82,11 @@ Format as JSON array:
       userMessages = [{ role: "user", content: `Generate FAQs from this document:\n\n${documentContent}` }];
     } else {
       // Check if this is a global search (multiple documents)
-      const isGlobalSearch = documentName === 'Knowledge Base' || documentContent.includes('--- Document:');
+      const isGlobalSearch = documentName === 'Knowledge Base' || (documentContent && documentContent.includes('--- Document:'));
+      const hasDocuments = documentContent && documentContent.trim().length > 0;
       
       // Rich formatting instructions for professional documents
       const formattingInstruction = `
-
 ## Formatting Guidelines:
 Use proper markdown formatting to structure your responses professionally:
 
@@ -131,7 +131,28 @@ Format them like this:
 - [Second follow-up question]
 - [Third follow-up question]`;
       
-      if (isGlobalSearch) {
+      if (!hasDocuments) {
+        // General chat mode - no documents, like ChatGPT
+        systemPrompt = `You are ज्ञानकोष (Gyaankosh), a friendly and knowledgeable AI assistant.
+
+You can help with a wide range of topics including:
+- Answering general knowledge questions
+- Helping with writing, coding, and creative tasks
+- Explaining concepts in simple terms
+- Providing advice and suggestions
+- Having thoughtful conversations
+
+Instructions:
+- Be helpful, accurate, and engaging
+- Respond in the same language as the user's question (Hindi, English, or Hinglish)
+- Use proper formatting for professional appearance
+- Be conversational and friendly
+- If you don't know something, be honest about it
+${formattingInstruction}
+${suggestionInstruction}
+
+Note: The user hasn't uploaded any documents yet. You're acting as a general AI assistant. If they want document-specific help, suggest they upload documents to the knowledge base.`;
+      } else if (isGlobalSearch) {
         systemPrompt = `You are ज्ञानकोष (Gyaankosh), a powerful AI assistant that searches across the user's entire knowledge base.
 
 You have access to multiple documents in the knowledge base:
