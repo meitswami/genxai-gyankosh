@@ -92,6 +92,7 @@ export type Database = {
           file_type: string
           id: string
           name: string
+          search_vector: unknown
           summary: string | null
           tags: string[] | null
           updated_at: string
@@ -108,6 +109,7 @@ export type Database = {
           file_type: string
           id?: string
           name: string
+          search_vector?: unknown
           summary?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -124,6 +126,7 @@ export type Database = {
           file_type?: string
           id?: string
           name?: string
+          search_vector?: unknown
           summary?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -229,6 +232,19 @@ export type Database = {
           id: string
           name: string
           similarity: number
+          tags: string[]
+        }[]
+      }
+      search_documents_fts: {
+        Args: { filter_user_id?: string; search_query: string }
+        Returns: {
+          alias: string
+          category: string
+          content_text: string
+          id: string
+          name: string
+          rank: number
+          summary: string
           tags: string[]
         }[]
       }
