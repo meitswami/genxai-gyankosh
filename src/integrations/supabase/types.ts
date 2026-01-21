@@ -80,6 +80,42 @@ export type Database = {
         }
         Relationships: []
       }
+      direct_messages: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          encrypted_content: string
+          file_url: string | null
+          id: string
+          iv: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          encrypted_content: string
+          file_url?: string | null
+          id?: string
+          iv: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          encrypted_content?: string
+          file_url?: string | null
+          id?: string
+          iv?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           alias: string
@@ -131,6 +167,69 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      friend_requests: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          id: string
+          status: string | null
+          to_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          id?: string
+          status?: string | null
+          to_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          status?: string | null
+          to_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          last_seen: string | null
+          public_key: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_seen?: string | null
+          public_key?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_seen?: string | null
+          public_key?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -221,6 +320,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_friends: {
+        Args: { p_user_id?: string }
+        Returns: {
+          friend_id: string
+          friends_since: string
+        }[]
+      }
       match_documents: {
         Args: {
           filter_user_id?: string

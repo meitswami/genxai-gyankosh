@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Eye, LogOut, FileSpreadsheet, Bell } from 'lucide-react';
+import { Eye, LogOut, FileSpreadsheet, Bell, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
 import { useChatSessions } from '@/hooks/useChatSessions';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewNotifications } from '@/hooks/useViewNotifications';
+import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { extractTextFromFile } from '@/lib/documentParser';
 import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatArea } from '@/components/ChatArea';
@@ -13,10 +14,12 @@ import { ChatInput } from '@/components/ChatInput';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentPreview } from '@/components/DocumentPreview';
 import { UploadProgress, type UploadStage } from '@/components/UploadProgress';
+import { BatchUploadProgress } from '@/components/BatchUploadProgress';
 import { DocumentComparison } from '@/components/DocumentComparison';
 import { ChatExport } from '@/components/ChatExport';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { ExcelSearchPanel } from '@/components/ExcelSearchPanel';
+import { ChatWidget } from '@/components/ChatWidget';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +53,13 @@ const Index = () => {
   const [showComparison, setShowComparison] = useState(false);
   const [showExcelSearch, setShowExcelSearch] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showBatchProgress, setShowBatchProgress] = useState(false);
+  
+  // Batch upload hook
+  const { uploads, isUploading: isBatchUploading, uploadFiles, clearCompleted, cancelUpload } = useBatchUpload({
+    maxConcurrent: 3,
+    onComplete: () => refetch(),
+  });
   
   // Realtime view notifications
   const { notifications } = useViewNotifications(user?.id);
@@ -602,6 +612,19 @@ const Index = () => {
       {showExcelSearch && (
         <ExcelSearchPanel onClose={() => setShowExcelSearch(false)} />
       )}
+
+      {/* Batch Upload Progress */}
+      {uploads.length > 0 && (
+        <BatchUploadProgress
+          uploads={uploads}
+          onClose={() => setShowBatchProgress(false)}
+          onClear={clearCompleted}
+          onCancel={cancelUpload}
+        />
+      )}
+
+      {/* Chat Widget for User-to-User messaging */}
+      <ChatWidget documents={documents} />
     </div>
   );
 };
