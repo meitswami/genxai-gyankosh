@@ -1,14 +1,16 @@
-import { useState } from 'react';
-import { MessageSquare, Plus, Trash2, BookOpen, ChevronDown, ChevronUp, LogOut } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { MessageSquare, Plus, Trash2, BookOpen, ChevronDown, ChevronUp, LogOut, GitCompare, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import type { ChatSession } from '@/hooks/useChatSessions';
 import type { Document } from '@/hooks/useDocuments';
 import { getFileIcon } from '@/lib/documentParser';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { DocumentSearch } from '@/components/DocumentSearch';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -18,6 +20,7 @@ interface ChatSidebarProps {
   onDeleteSession: (id: string) => void;
   documents: Document[];
   onDeleteDocument: (id: string) => void;
+  onCompareDocuments?: () => void;
   loading: boolean;
 }
 
@@ -35,10 +38,25 @@ export function ChatSidebar({
   onDeleteSession,
   documents,
   onDeleteDocument,
+  onCompareDocuments,
   loading,
 }: ChatSidebarProps) {
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
+  const [docSearchQuery, setDocSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  // Filter documents by search query
+  const filteredDocuments = useMemo(() => {
+    if (!docSearchQuery.trim()) return documents;
+    const query = docSearchQuery.toLowerCase();
+    return documents.filter(doc =>
+      doc.alias.toLowerCase().includes(query) ||
+      doc.name.toLowerCase().includes(query) ||
+      doc.summary?.toLowerCase().includes(query) ||
+      doc.tags?.some(tag => tag.toLowerCase().includes(query)) ||
+      doc.category?.toLowerCase().includes(query)
+    );
+  }, [documents, docSearchQuery]);
 
   const handleLogout = () => {
     localStorage.removeItem('gyaankosh_logged_in');
@@ -85,14 +103,34 @@ export function ChatSidebar({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="max-h-48 overflow-y-auto bg-muted/30">
-            {documents.length === 0 ? (
+          <div className="max-h-64 overflow-y-auto bg-muted/30">
+            {/* Search and Compare */}
+            <div className="p-2 space-y-2 border-b border-border/50">
+              <DocumentSearch
+                value={docSearchQuery}
+                onChange={setDocSearchQuery}
+                placeholder="Search documents..."
+              />
+              {documents.length >= 2 && onCompareDocuments && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCompareDocuments}
+                  className="w-full gap-2 h-7 text-xs"
+                >
+                  <GitCompare className="w-3 h-3" />
+                  Compare Documents
+                </Button>
+              )}
+            </div>
+            
+            {filteredDocuments.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
-                No documents uploaded yet
+                {docSearchQuery ? 'No matching documents' : 'No documents uploaded yet'}
               </p>
             ) : (
               <div className="p-2 space-y-1">
-                {documents.map((doc) => (
+                {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
                     className="group flex items-start gap-2 p-2 rounded-md hover:bg-sidebar-accent text-sm"
@@ -103,6 +141,21 @@ export function ChatSidebar({
                       <span className="text-[10px] text-muted-foreground/60">
                         {format(new Date(doc.created_at), 'MMM d, yyyy')} • {doc.file_size ? formatFileSize(doc.file_size) : 'N/A'}
                       </span>
+                      {/* Show tags */}
+                      {doc.tags && doc.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {doc.tags.slice(0, 2).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-[8px] h-3 px-1">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {doc.tags.length > 2 && (
+                            <Badge variant="outline" className="text-[8px] h-3 px-1">
+                              +{doc.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
