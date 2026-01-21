@@ -11,6 +11,7 @@ import { ChatArea } from '@/components/ChatArea';
 import { ChatInput } from '@/components/ChatInput';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentPreview } from '@/components/DocumentPreview';
+import { UploadProgress, type UploadStage } from '@/components/UploadProgress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,8 +36,9 @@ const Index = () => {
   
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('uploading');
+  const [uploadFileName, setUploadFileName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
 
   // Load messages when session changes
   useEffect(() => {
@@ -73,18 +75,18 @@ const Index = () => {
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
+    setUploadFileName(file.name);
+    setUploadStage('uploading');
     const startTime = Date.now();
-    setUploadStartTime(startTime);
     
     try {
-      toast({
-        title: 'Processing document...',
-        description: 'Extracting text and analyzing content',
-      });
-
       let contentText = '';
       
+      // Stage 1: Uploading / Initial check
       const clientText = await extractTextFromFile(file);
+      
+      // Stage 2: Extracting text
+      setUploadStage('extracting');
       
       if (clientText === 'REQUIRES_SERVER_PARSING') {
         const { data: { session } } = await supabase.auth.getSession();
@@ -119,6 +121,9 @@ const Index = () => {
       if (!contentText || contentText.length < 20) {
         throw new Error('Could not extract meaningful text from the document');
       }
+
+      // Stage 3: AI Analysis
+      setUploadStage('analyzing');
 
       // Get fresh token for chat call
       const { data: { session: chatSession } } = await supabase.auth.getSession();
@@ -203,22 +208,29 @@ const Index = () => {
       const savedDoc = await uploadDocument(file, contentText, summary);
       
       if (savedDoc) {
+        setUploadStage('complete');
         setSelectedDocument(savedDoc);
         const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        toast({
-          title: '✅ Document Added!',
-          description: `"${summary.alias}" processed in ${processingTime}s`,
-        });
+        
+        // Brief delay to show complete state
+        setTimeout(() => {
+          setIsUploading(false);
+          toast({
+            title: '✅ Document Added!',
+            description: `"${summary.alias}" processed in ${processingTime}s`,
+          });
+        }, 500);
+      } else {
+        setIsUploading(false);
       }
     } catch (error) {
       console.error('Upload error:', error);
+      setIsUploading(false);
       toast({
         title: 'Upload Failed',
         description: error instanceof Error ? error.message : 'Could not process document',
         variant: 'destructive',
       });
-    } finally {
-      setIsUploading(false);
     }
   }, [toast, uploadDocument]);
 
@@ -417,6 +429,11 @@ const Index = () => {
           document={selectedDocument}
           onClose={() => setShowPreview(false)}
         />
+      )}
+
+      {/* Upload Progress Overlay */}
+      {isUploading && (
+        <UploadProgress stage={uploadStage} fileName={uploadFileName} />
       )}
     </div>
   );
