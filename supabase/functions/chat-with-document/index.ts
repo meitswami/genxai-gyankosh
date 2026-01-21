@@ -84,6 +84,16 @@ Format as JSON array:
       // Check if this is a global search (multiple documents)
       const isGlobalSearch = documentName === 'Knowledge Base' || documentContent.includes('--- Document:');
       
+      const suggestionInstruction = `
+
+After your main answer, add a section with 2-3 related follow-up questions the user might want to ask.
+Format them like this:
+---
+**Related questions:**
+- [First follow-up question]
+- [Second follow-up question]
+- [Third follow-up question]`;
+      
       if (isGlobalSearch) {
         systemPrompt = `You are ज्ञानकोष (Gyaankosh), a powerful AI assistant that searches across the user's entire knowledge base.
 
@@ -98,7 +108,8 @@ Instructions:
 - Respond in the same language as the user's question (Hindi, English, or Hinglish)
 - If the answer isn't in any document, politely say so
 - Keep answers clear, well-structured, and fast to read
-- Use bullet points or numbered lists for clarity when appropriate`;
+- Use bullet points or numbered lists for clarity when appropriate
+${suggestionInstruction}`;
       } else {
         systemPrompt = `You are ज्ञानकोष (Gyaankosh), a helpful AI assistant specialized in answering questions from documents.
 You have access to the following document: "${documentName}"
@@ -111,7 +122,8 @@ Instructions:
 - Be accurate and cite relevant parts of the document
 - Respond in the same language as the user's question (Hindi, English, or Hinglish)
 - If the answer is not in the document, politely say so
-- Keep answers clear and concise`;
+- Keep answers clear and concise
+${suggestionInstruction}`;
       }
     }
 
