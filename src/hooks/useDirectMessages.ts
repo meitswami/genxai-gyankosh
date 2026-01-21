@@ -150,17 +150,27 @@ export function useDirectMessages(currentUserId: string | null, friendProfile: U
     }
   }, [currentUserId, friendProfile, toast]);
 
-  // Mark messages as read
+  // Mark messages as read (updates both read_at and status)
   const markAsRead = useCallback(async () => {
     if (!currentUserId || !friendProfile) return;
 
     try {
       await supabase
         .from('direct_messages')
-        .update({ read_at: new Date().toISOString() })
+        .update({ 
+          read_at: new Date().toISOString(),
+          status: 'read'
+        })
         .eq('recipient_id', currentUserId)
         .eq('sender_id', friendProfile.user_id)
         .is('read_at', null);
+        
+      // Update local messages state to reflect read status
+      setMessages(prev => prev.map(msg => 
+        msg.sender_id === friendProfile.user_id && !msg.read_at
+          ? { ...msg, read_at: new Date().toISOString(), status: 'read' as const }
+          : msg
+      ));
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -205,11 +215,25 @@ export function useDirectMessages(currentUserId: string | null, friendProfile: U
         async (payload) => {
           const newMsg = payload.new as RawMessage;
           
+          // Mark message as delivered when recipient's app receives it
+          await supabase
+            .from('direct_messages')
+            .update({ 
+              delivered_at: new Date().toISOString(),
+              status: 'delivered'
+            })
+            .eq('id', newMsg.id)
+            .is('delivered_at', null);
+          
           // Get private key and decrypt
           const privateKey = await getPrivateKey(currentUserId);
           if (privateKey) {
             const decrypted = await decryptSingleMessage(newMsg, privateKey);
             if (decrypted) {
+              // Update decrypted message with delivered status
+              decrypted.status = 'delivered';
+              decrypted.delivered_at = new Date().toISOString();
+              
               // If chat is open with this friend, add to messages
               if (friendProfile && newMsg.sender_id === friendProfile.user_id) {
                 setMessages(prev => [...prev, decrypted]);
