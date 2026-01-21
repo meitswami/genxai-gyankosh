@@ -264,7 +264,9 @@ export function ChatInput({
               placeholder={
                 selectedDocument
                   ? `Ask about ${selectedDocument.alias}...`
-                  : "Type # to reference a document, or drag & drop files..."
+                  : documents.length > 0 
+                    ? "Ask anything across your knowledge base..."
+                    : "Upload a document to start chatting..."
               }
               className="min-h-[44px] max-h-32 resize-none pr-12"
               rows={1}
@@ -274,7 +276,7 @@ export function ChatInput({
           {/* Send Button */}
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || isLoading}
+            disabled={!message.trim() || isLoading || (documents.length === 0 && !selectedDocument)}
             className="flex-shrink-0 h-10 w-10"
             size="icon"
           >
@@ -288,7 +290,10 @@ export function ChatInput({
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          Drag & drop or click 📎 to upload • {getSupportedFileTypesLabel()} • Hindi, English & Hinglish
+          {documents.length > 0 && !selectedDocument 
+            ? '🔍 Global search mode: Ask anything across all documents • Use # for specific document'
+            : 'Drag & drop or click 📎 to upload • PDF, DOCX, Images, Videos • Hindi, English & Hinglish'
+          }
         </p>
       </div>
     </div>

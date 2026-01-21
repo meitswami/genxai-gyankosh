@@ -235,25 +235,25 @@ const Index = () => {
   }, [toast, uploadDocument]);
 
   const handleSendMessage = useCallback(async (message: string) => {
-    if (!selectedDocument) {
-      toast({
-        title: 'No document selected',
-        description: 'Type # to select a document or upload a new one',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    // Allow global search when no document is selected (searches all documents)
+    const isGlobalSearch = !selectedDocument;
+    
     let sessionId = currentSessionId;
 
     // Create new session if needed
     if (!sessionId) {
-      const newSession = await createSession(generateTitle(message));
+      const title = isGlobalSearch 
+        ? `🔍 ${generateTitle(message)}`
+        : generateTitle(message);
+      const newSession = await createSession(title);
       if (!newSession) return;
       sessionId = newSession.id;
     } else if (messages.length === 0) {
       // Update title with first message
-      await updateSessionTitle(sessionId, generateTitle(message));
+      const title = isGlobalSearch 
+        ? `🔍 ${generateTitle(message)}`
+        : generateTitle(message);
+      await updateSessionTitle(sessionId, title);
     }
 
     // Save user message to DB
@@ -261,10 +261,39 @@ const Index = () => {
       session_id: sessionId,
       role: 'user',
       content: message,
-      document_id: selectedDocument.id,
+      document_id: selectedDocument?.id || null,
     });
 
-    const response = await sendMessage(message, selectedDocument);
+    // For global search, pass all documents' content
+    let response: string | null;
+    if (isGlobalSearch && documents.length > 0) {
+      // Combine document contents for global search (limit to prevent token overflow)
+      const combinedDocs = documents
+        .filter(doc => doc.content_text)
+        .map(doc => `--- Document: ${doc.alias} ---\n${doc.content_text?.slice(0, 3000) || ''}`)
+        .join('\n\n');
+      
+      response = await sendMessage(message, {
+        id: 'global',
+        name: 'All Documents',
+        alias: 'Knowledge Base',
+        content_text: combinedDocs,
+        file_path: '',
+        file_type: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: null,
+      } as Document);
+    } else if (selectedDocument) {
+      response = await sendMessage(message, selectedDocument);
+    } else {
+      toast({
+        title: 'No documents available',
+        description: 'Please upload a document first to start chatting',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     // Save assistant response to DB
     if (response) {
@@ -272,10 +301,10 @@ const Index = () => {
         session_id: sessionId,
         role: 'assistant',
         content: response,
-        document_id: selectedDocument.id,
+        document_id: selectedDocument?.id || null,
       });
     }
-  }, [selectedDocument, sendMessage, toast, currentSessionId, createSession, updateSessionTitle, generateTitle, messages.length]);
+  }, [selectedDocument, documents, sendMessage, toast, currentSessionId, createSession, updateSessionTitle, generateTitle, messages.length]);
 
   const handleGenerateFaq = useCallback(async (count: number) => {
     if (!selectedDocument) return;
@@ -371,7 +400,9 @@ const Index = () => {
               <h2 className="font-medium text-foreground truncate">
                 {selectedDocument 
                   ? `Chatting with: ${selectedDocument.alias}` 
-                  : 'Select or upload a document'
+                  : documents.length > 0
+                    ? '🔍 Searching across all documents'
+                    : 'Upload a document to start'
                 }
               </h2>
               {selectedDocument?.summary && (
@@ -408,7 +439,7 @@ const Index = () => {
         </header>
 
         {/* Chat Messages */}
-        <ChatArea messages={messages} isLoading={isLoading} />
+        <ChatArea messages={messages} isLoading={isLoading} hasDocuments={documents.length > 0} />
 
         {/* Input */}
         <ChatInput

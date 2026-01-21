@@ -8,9 +8,10 @@ import type { ChatMessage } from '@/hooks/useChat';
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  hasDocuments?: boolean;
 }
 
-export function ChatArea({ messages, isLoading }: ChatAreaProps) {
+export function ChatArea({ messages, isLoading, hasDocuments = false }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,12 +36,21 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
           <div className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
               <FileText className="w-5 h-5 text-primary" />
-              <span>Upload documents to build your knowledge base</span>
+              <span>Upload documents, images, or videos to build your knowledge base</span>
             </div>
-            <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
-              <span className="font-mono text-primary">#</span>
-              <span>Type # to reference any document in chat</span>
-            </div>
+            {hasDocuments ? (
+              <div className="flex items-center gap-3 bg-primary/10 rounded-lg p-3 border border-primary/20">
+                <Bot className="w-5 h-5 text-primary" />
+                <span className="text-foreground">
+                  Just type to search across all your documents!
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
+                <span className="font-mono text-primary">#</span>
+                <span>Type # to reference a specific document</span>
+              </div>
+            )}
             <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
               <Bot className="w-5 h-5 text-primary" />
               <span>Ask questions in Hindi, English, or Hinglish</span>

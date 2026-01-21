@@ -81,7 +81,26 @@ Format as JSON array:
 [{"question": "...", "answer": "..."}]`;
       userMessages = [{ role: "user", content: `Generate FAQs from this document:\n\n${documentContent}` }];
     } else {
-      systemPrompt = `You are ज्ञानकोष (Gyaankosh), a helpful AI assistant specialized in answering questions from documents.
+      // Check if this is a global search (multiple documents)
+      const isGlobalSearch = documentName === 'Knowledge Base' || documentContent.includes('--- Document:');
+      
+      if (isGlobalSearch) {
+        systemPrompt = `You are ज्ञानकोष (Gyaankosh), a powerful AI assistant that searches across the user's entire knowledge base.
+
+You have access to multiple documents in the knowledge base:
+${documentContent}
+
+Instructions:
+- Search across ALL documents to find the most relevant information
+- Synthesize information from multiple documents when applicable
+- Always cite which document(s) you're referencing in your answer
+- Be accurate and provide comprehensive answers
+- Respond in the same language as the user's question (Hindi, English, or Hinglish)
+- If the answer isn't in any document, politely say so
+- Keep answers clear, well-structured, and fast to read
+- Use bullet points or numbered lists for clarity when appropriate`;
+      } else {
+        systemPrompt = `You are ज्ञानकोष (Gyaankosh), a helpful AI assistant specialized in answering questions from documents.
 You have access to the following document: "${documentName}"
 
 Document Content:
@@ -93,6 +112,7 @@ Instructions:
 - Respond in the same language as the user's question (Hindi, English, or Hinglish)
 - If the answer is not in the document, politely say so
 - Keep answers clear and concise`;
+      }
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

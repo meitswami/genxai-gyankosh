@@ -80,6 +80,10 @@ serve(async (req) => {
       // Image files - use OCR via AI vision
       console.log("Processing image file with OCR...");
       textContent = await extractTextFromImageWithAI(file);
+    } else if (isVideoFile(fileName, fileType)) {
+      // Video files - extract frames and analyze
+      console.log("Processing video file with AI vision...");
+      textContent = await extractTextFromVideoWithAI(file);
     } else if (fileName.endsWith(".pdf")) {
       // PDF files - try AI extraction with vision for scanned PDFs
       console.log("Processing PDF file...");
@@ -138,6 +142,13 @@ function isImageFile(fileName: string, fileType: string): boolean {
   const imageTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "image/tiff"];
   
   return imageExtensions.some(ext => fileName.endsWith(ext)) || imageTypes.includes(fileType);
+}
+
+function isVideoFile(fileName: string, fileType: string): boolean {
+  const videoExtensions = [".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v", ".wmv", ".flv"];
+  const videoTypes = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+  
+  return videoExtensions.some(ext => fileName.endsWith(ext)) || videoTypes.includes(fileType);
 }
 
 // Safe base64 encoding for large files - avoids stack overflow
@@ -226,6 +237,100 @@ CRITICAL INSTRUCTIONS:
   } catch (error) {
     console.error("OCR extraction error:", error);
     return "";
+  }
+}
+
+async function extractTextFromVideoWithAI(file: File): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  if (!LOVABLE_API_KEY) {
+    console.error("LOVABLE_API_KEY not available for video analysis");
+    return "";
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+    const mimeType = file.type || "video/mp4";
+
+    console.log("Calling AI for video analysis (multilingual support)...");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert multilingual video analyzer with OCR and scene understanding capabilities.
+You have strong support for Indian languages including Hindi (हिंदी), Marathi, Gujarati, Bengali, Tamil, Telugu, and other regional scripts.
+
+CRITICAL INSTRUCTIONS:
+1. ANALYZE THE VIDEO thoroughly - watch the entire content
+2. EXTRACT ALL VISIBLE TEXT using OCR - preserve original scripts (Devanagari, etc.)
+3. DESCRIBE key scenes, objects, people, actions, and events
+4. TRANSCRIBE any spoken words or audio (if available)
+5. For documents/slides in video: extract all text content
+6. For presentations: capture slide titles, bullet points, content
+7. For tutorials/demos: describe step-by-step actions
+8. Preserve Hindi/Indian language content in original script
+9. Maintain chronological order of events
+
+OUTPUT FORMAT:
+[VIDEO ANALYSIS]
+Duration: (estimated)
+Type: (documentary/tutorial/presentation/etc.)
+
+[EXTRACTED TEXT/OCR]
+(All visible text in original scripts)
+
+[SCENE DESCRIPTIONS]
+(Chronological description of key scenes)
+
+[AUDIO/SPEECH TRANSCRIPTION]
+(Any detected speech or audio content)
+
+[KEY INFORMATION]
+(Summary of important facts/data from the video)`
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "file",
+                file: {
+                  filename: file.name,
+                  file_data: `data:${mimeType};base64,${base64}`
+                }
+              },
+              {
+                type: "text",
+                text: "Analyze this video completely. Extract all visible text (OCR), describe scenes, and transcribe any speech. Preserve Hindi and other Indian language content in original script. Provide a comprehensive analysis."
+              }
+            ]
+          }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("AI video analysis failed:", response.status, errText);
+      return `[Video file: ${file.name}] - Video analysis temporarily unavailable. Please try with a smaller video or image captures.`;
+    }
+
+    const result = await response.json();
+    const extractedText = result.choices?.[0]?.message?.content || "";
+    console.log("Video analysis successful, length:", extractedText.length);
+    
+    return extractedText;
+  } catch (error) {
+    console.error("Video analysis error:", error);
+    return `[Video file: ${file.name}] - Error analyzing video: ${error instanceof Error ? error.message : "Unknown error"}`;
   }
 }
 

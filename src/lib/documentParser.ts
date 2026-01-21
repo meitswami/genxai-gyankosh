@@ -39,6 +39,13 @@ function isImageFile(fileName: string, fileType: string): boolean {
   return imageExtensions.some(ext => fileName.endsWith(ext)) || imageTypes.includes(fileType);
 }
 
+export function isVideoFile(fileName: string, fileType: string): boolean {
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v', '.wmv', '.flv'];
+  const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+  
+  return videoExtensions.some(ext => fileName.endsWith(ext)) || videoTypes.includes(fileType);
+}
+
 function isPrintableText(text: string): boolean {
   // Check if the text is mostly printable characters
   const printable = text.replace(/[^\x20-\x7E\u0900-\u097F\s]/g, '');
@@ -50,13 +57,14 @@ export function getFileIcon(fileType: string): string {
   if (fileType.includes('word') || fileType.includes('doc')) return '📘';
   if (fileType.includes('text')) return '📄';
   if (fileType.includes('image')) return '🖼️';
+  if (fileType.includes('video')) return '🎬';
   return '📁';
 }
 
 export function getSupportedFileTypes(): string {
-  return '.pdf,.docx,.doc,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif';
+  return '.pdf,.docx,.doc,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.mp4,.webm,.mov,.avi,.mkv';
 }
 
 export function getSupportedFileTypesLabel(): string {
-  return 'PDF, DOCX, DOC, TXT, Images (JPG, PNG, etc.)';
+  return 'PDF, DOCX, Images, Videos';
 }
