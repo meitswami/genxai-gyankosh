@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          resource_id: string | null
+          resource_type: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      api_integrations: {
+        Row: {
+          api_key_encrypted: string | null
+          base_url: string
+          created_at: string
+          description: string | null
+          headers: Json | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          base_url: string
+          created_at?: string
+          description?: string | null
+          headers?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          base_url?: string
+          created_at?: string
+          description?: string | null
+          headers?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_groups: {
         Row: {
           avatar_url: string | null
@@ -395,6 +476,45 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          created_at: string
+          current_usage: Json | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string
+          settings: Json | null
+          slug: string
+          updated_at: string
+          usage_limits: Json | null
+        }
+        Insert: {
+          created_at?: string
+          current_usage?: Json | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          settings?: Json | null
+          slug: string
+          updated_at?: string
+          usage_limits?: Json | null
+        }
+        Update: {
+          created_at?: string
+          current_usage?: Json | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          settings?: Json | null
+          slug?: string
+          updated_at?: string
+          usage_limits?: Json | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -513,6 +633,39 @@ export type Database = {
           },
         ]
       }
+      two_factor_settings: {
+        Row: {
+          backup_codes: string[] | null
+          created_at: string
+          id: string
+          is_enabled: boolean | null
+          last_verified_at: string | null
+          secret_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backup_codes?: string[] | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          last_verified_at?: string | null
+          secret_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backup_codes?: string[] | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          last_verified_at?: string | null
+          secret_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       typing_indicators: {
         Row: {
           id: string
@@ -530,6 +683,33 @@ export type Database = {
           id?: string
           recipient_id?: string
           started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -618,6 +798,13 @@ export type Database = {
           friends_since: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       match_documents: {
         Args: {
           filter_user_id?: string
@@ -650,7 +837,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -777,6 +964,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
