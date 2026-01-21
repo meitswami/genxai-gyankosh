@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Link2, Copy, Check, FileText, FileDown, X, Loader2 } from 'lucide-react';
+import { Download, Link2, Copy, Check, FileText, FileDown, X, Loader2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,11 +14,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { ChatMessage } from '@/hooks/useChat';
 import { jsPDF } from 'jspdf';
 import { getChatShareUrl } from '@/lib/shareUrl';
+import { addDays, format } from 'date-fns';
+
+type ExpirationOption = 'never' | '7days' | '30days';
 
 interface ChatExportProps {
   messages: ChatMessage[];
@@ -31,6 +42,8 @@ export function ChatExport({ messages, sessionId, sessionTitle }: ChatExportProp
   const [shareLink, setShareLink] = useState('');
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expiration, setExpiration] = useState<ExpirationOption>('never');
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const { toast } = useToast();
 
   const generateMarkdown = () => {
@@ -160,6 +173,14 @@ export function ChatExport({ messages, sessionId, sessionTitle }: ChatExportProp
         createdAt: m.createdAt.toISOString(),
       }));
 
+      // Calculate expiration date
+      let expires_at: string | null = null;
+      if (expiration === '7days') {
+        expires_at = addDays(new Date(), 7).toISOString();
+      } else if (expiration === '30days') {
+        expires_at = addDays(new Date(), 30).toISOString();
+      }
+
       const { data, error } = await supabase
         .from('shared_chats')
         .insert({
@@ -167,14 +188,16 @@ export function ChatExport({ messages, sessionId, sessionTitle }: ChatExportProp
           messages_snapshot: messagesSnapshot,
           title: sessionTitle || 'Shared Chat',
           user_id: user.id,
+          expires_at,
         })
-        .select('share_token')
+        .select('share_token, expires_at')
         .single();
 
       if (error) throw error;
 
       const link = getChatShareUrl(data.share_token);
       setShareLink(link);
+      setExpiresAt(data.expires_at ? new Date(data.expires_at) : null);
       setIsShareDialogOpen(true);
     } catch (error) {
       console.error('Error creating share link:', error);
@@ -239,25 +262,64 @@ export function ChatExport({ messages, sessionId, sessionTitle }: ChatExportProp
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Anyone with this link can view the chat conversation:
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={shareLink}
-                readOnly
-                className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border truncate"
-              />
-              <Button onClick={copyLink} size="sm" className="gap-1.5">
-                {copied ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <Copy className="w-4 h-4" />
+            {!shareLink && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="expiration" className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Link Expiration
+                  </Label>
+                  <Select value={expiration} onValueChange={(v) => setExpiration(v as ExpirationOption)}>
+                    <SelectTrigger id="expiration">
+                      <SelectValue placeholder="Select expiration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="never">Never expires</SelectItem>
+                      <SelectItem value="7days">Expires in 7 days</SelectItem>
+                      <SelectItem value="30days">Expires in 30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={createShareLink} disabled={isCreatingLink} className="w-full gap-2">
+                  {isCreatingLink ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Link2 className="w-4 h-4" />
+                  )}
+                  Generate Share Link
+                </Button>
+              </div>
+            )}
+            
+            {shareLink && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Anyone with this link can view the chat conversation:
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={shareLink}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border truncate"
+                  />
+                  <Button onClick={copyLink} size="sm" className="gap-1.5">
+                    {copied ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    {copied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                {expiresAt && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
+                    Expires on {format(expiresAt, 'MMM d, yyyy')}
+                  </p>
                 )}
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
