@@ -4,23 +4,38 @@
 
 ## ✨ Features
 
-- **📚 Document Upload**: Support for PDF, DOCX, DOC, TXT, and image files
-- **🔍 OCR Support**: Extract text from scanned PDFs and images (JPG, PNG, etc.)
-- **💬 Multilingual Chat**: Ask questions in Hindi, English, or Hinglish with 100% accuracy
-- **🤖 AI-Powered Responses**: Get intelligent answers based on your document content
-- **📝 FAQ Generation**: Automatically generate FAQs from your documents with collapsible accordions
+### 📚 Document Management
+- **Multi-Format Upload**: Support for PDF, DOCX, DOC, TXT, images (JPG, PNG, WebP), and videos (MP4, WebM, MOV)
+- **🔍 Advanced OCR**: Extract text from scanned PDFs, images, and videos with multilingual support (Hindi, English, regional languages)
+- **🏷️ AI-Generated Tags & Categories**: Documents are automatically categorized and tagged for better organization
+- **📊 Document Comparison**: Compare two documents side-by-side with AI-powered analysis of similarities and differences
+- **🔎 Smart Search**: Search documents by name, content, tags, or categories
+
+### 💬 AI Chat & Search
+- **🌐 Global Knowledge Search**: Ask questions across your entire knowledge base without selecting specific documents
+- **🎯 Document-Specific Chat**: Use `#` to reference and chat with specific documents
+- **⚡ Vector Embeddings**: Semantic search using AI embeddings for faster and more accurate results
+- **🎤 Voice Input**: Speech-to-text support for Hindi and English voice queries
+- **📝 FAQ Generation**: Automatically generate FAQs from documents with collapsible accordions
 - **📋 Export Options**: Copy FAQs to clipboard or download as text files
-- **💾 Chat History**: Auto-save conversations with smart naming like ChatGPT
-- **🔐 Simple Authentication**: Quick login to get started
+
+### 🔧 User Experience
+- **💾 Chat History**: Auto-save conversations with smart naming
+- **🔐 Secure Authentication**: User authentication with row-level security
 - **🌙 Dark Mode**: Toggle between light and dark themes
+- **📱 Responsive Design**: Works on desktop and mobile devices
+- **⏱️ Upload Progress**: Real-time progress tracking during document processing
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React, TypeScript, Vite
+- **Frontend**: React 18, TypeScript, Vite
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Backend**: Lovable Cloud (Supabase)
-- **AI**: Google Gemini via Lovable AI Gateway
-- **Database**: PostgreSQL with Row Level Security
+- **AI Models**: 
+  - Google Gemini 3 Flash (Chat & Analysis)
+  - Text Embedding 3 Small (Semantic Search)
+- **Database**: PostgreSQL with pgvector extension
+- **Storage**: Supabase Storage with RLS
 
 ## 🚀 Getting Started
 
@@ -44,43 +59,82 @@ npm install
 npm run dev
 ```
 
-### Default Login Credentials
-
-- **Username**: `demo`
-- **Password**: `demo123`
-
 ## 📖 Usage
 
-1. **Login** with the demo credentials
-2. **Upload a document** using the attachment button or drag-and-drop
-3. **Select a document** by typing `#` in the chat input
-4. **Ask questions** about your document in any language
-5. **Generate FAQs** using the "Generate FAQ" button
-6. **Export FAQs** by copying to clipboard or downloading
+### Document Upload
+1. **Drag & drop** files onto the chat input area, or click the 📎 button
+2. Supported formats: PDF, DOCX, DOC, TXT, JPG, PNG, MP4, WebM
+3. Documents are automatically analyzed, summarized, and tagged
+
+### Chatting with Documents
+1. **Global Search**: Simply type your question to search across all documents
+2. **Specific Document**: Type `#` to select a specific document
+3. **Voice Input**: Click the 🎤 microphone button for voice queries
+4. **Generate FAQs**: Select a document and click "Generate FAQ"
+
+### Document Comparison
+1. Click **"Compare"** in the Knowledge Base section
+2. Select two documents to compare
+3. AI will analyze similarities, differences, and unique content
+
+### Searching Documents
+- Use the search bar in the Knowledge Base to find documents by:
+  - Name or alias
+  - Content text
+  - Tags or category
+  - Summary
 
 ## 🏗️ Project Structure
 
 ```
 src/
-├── components/       # React components
-│   ├── ui/          # shadcn/ui components
-│   ├── ChatArea.tsx # Main chat display
-│   ├── ChatInput.tsx # Message input with document selector
-│   ├── ChatSidebar.tsx # Chat history & knowledge base
-│   └── FAQRenderer.tsx # FAQ display with accordions
-├── hooks/           # Custom React hooks
-│   ├── useAuth.ts   # Authentication state
-│   ├── useChat.ts   # Chat messaging logic
+├── components/           # React components
+│   ├── ui/              # shadcn/ui components
+│   ├── ChatArea.tsx     # Main chat display
+│   ├── ChatInput.tsx    # Message input with voice & document selector
+│   ├── ChatSidebar.tsx  # Chat history & knowledge base
+│   ├── DocumentComparison.tsx # Side-by-side document comparison
+│   ├── DocumentSearch.tsx # Search input component
+│   ├── FAQRenderer.tsx  # FAQ display with accordions
+│   ├── SpeechButton.tsx # Voice input button
+│   ├── TagFilter.tsx    # Tag filtering component
+│   └── UploadProgress.tsx # Upload progress indicator
+├── hooks/               # Custom React hooks
+│   ├── useAuth.ts       # Authentication state
+│   ├── useChat.ts       # Chat messaging logic
 │   ├── useChatSessions.ts # Session management
-│   └── useDocuments.ts # Document CRUD operations
-├── pages/           # Route pages
-├── lib/             # Utilities
-└── integrations/    # Supabase client
+│   ├── useDocuments.ts  # Document CRUD operations
+│   └── useSpeechToText.ts # Voice input hook
+├── pages/               # Route pages
+│   ├── Index.tsx        # Main application page
+│   └── Auth.tsx         # Authentication page
+├── lib/                 # Utilities
+│   ├── documentParser.ts # File type handling
+│   └── utils.ts         # Helper functions
+└── integrations/        # Supabase client
+    └── supabase/
+
+supabase/
+└── functions/           # Edge Functions
+    ├── chat-with-document/ # AI chat endpoint
+    ├── parse-document/     # Document parsing & OCR
+    └── generate-embedding/ # Vector embeddings & search
 ```
+
+## 🔒 Security
+
+- **Row Level Security (RLS)**: All data is protected with user-specific access policies
+- **JWT Authentication**: Secure token-based authentication
+- **Storage Policies**: Documents are stored with user-specific folder structure
 
 ## 🔧 Configuration
 
 The project uses Lovable Cloud for backend services. All configuration is handled automatically.
+
+### Environment Variables (Auto-configured)
+- `VITE_SUPABASE_URL` - Backend URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` - Public API key
+- `VITE_SUPABASE_PROJECT_ID` - Project identifier
 
 ## 📄 License
 

@@ -12,6 +12,7 @@ import { ChatInput } from '@/components/ChatInput';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentPreview } from '@/components/DocumentPreview';
 import { UploadProgress, type UploadStage } from '@/components/UploadProgress';
+import { DocumentComparison } from '@/components/DocumentComparison';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,6 +42,7 @@ const Index = () => {
   const [uploadStage, setUploadStage] = useState<UploadStage>('uploading');
   const [uploadFileName, setUploadFileName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
 
   // Load messages when session changes
   useEffect(() => {
@@ -460,6 +462,7 @@ const Index = () => {
         onDeleteSession={deleteSession}
         documents={documents}
         onDeleteDocument={deleteDocument}
+        onCompareDocuments={() => setShowComparison(true)}
         loading={sessionsLoading || docsLoading}
       />
 
@@ -537,6 +540,14 @@ const Index = () => {
       {/* Upload Progress Overlay */}
       {isUploading && (
         <UploadProgress stage={uploadStage} fileName={uploadFileName} />
+      )}
+
+      {/* Document Comparison Modal */}
+      {showComparison && (
+        <DocumentComparison
+          documents={documents}
+          onClose={() => setShowComparison(false)}
+        />
       )}
     </div>
   );

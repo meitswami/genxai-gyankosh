@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Trash2, BookOpen, Tag } from 'lucide-react';
+import { FileText, Trash2, BookOpen, GitCompare, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -7,12 +7,14 @@ import type { Document } from '@/hooks/useDocuments';
 import { getFileIcon } from '@/lib/documentParser';
 import { format } from 'date-fns';
 import { TagFilter } from '@/components/TagFilter';
+import { DocumentSearch } from '@/components/DocumentSearch';
 
 interface DocumentSidebarProps {
   documents: Document[];
   selectedDocument: Document | null;
   onSelectDocument: (doc: Document | null) => void;
   onDeleteDocument: (id: string) => void;
+  onCompareDocuments?: () => void;
   loading: boolean;
 }
 
@@ -21,22 +23,43 @@ export function DocumentSidebar({
   selectedDocument,
   onSelectDocument,
   onDeleteDocument,
+  onCompareDocuments,
   loading,
 }: DocumentSidebarProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get all tags from documents
   const allTags = useMemo(() => {
     return documents.flatMap(doc => doc.tags || []);
   }, [documents]);
 
-  // Filter documents by selected tags
+  // Filter documents by search query and selected tags
   const filteredDocuments = useMemo(() => {
-    if (selectedTags.length === 0) return documents;
-    return documents.filter(doc => 
-      selectedTags.some(tag => doc.tags?.includes(tag))
-    );
-  }, [documents, selectedTags]);
+    let result = documents;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(doc => 
+        doc.alias.toLowerCase().includes(query) ||
+        doc.name.toLowerCase().includes(query) ||
+        doc.summary?.toLowerCase().includes(query) ||
+        doc.content_text?.toLowerCase().includes(query) ||
+        doc.tags?.some(tag => tag.toLowerCase().includes(query)) ||
+        doc.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter by selected tags
+    if (selectedTags.length > 0) {
+      result = result.filter(doc => 
+        selectedTags.some(tag => doc.tags?.includes(tag))
+      );
+    }
+    
+    return result;
+  }, [documents, selectedTags, searchQuery]);
 
   const handleTagSelect = (tag: string) => {
     setSelectedTags(prev => [...prev, tag]);
@@ -72,7 +95,25 @@ export function DocumentSidebar({
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Knowledge Base ({filteredDocuments.length}/{documents.length})
             </h2>
+            {documents.length >= 2 && onCompareDocuments && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCompareDocuments}
+                className="h-6 text-xs gap-1 px-2"
+              >
+                <GitCompare className="w-3 h-3" />
+                Compare
+              </Button>
+            )}
           </div>
+          
+          {/* Search */}
+          <DocumentSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by name, content, tags..."
+          />
           
           {/* Tag Filter */}
           {allTags.length > 0 && (
@@ -86,7 +127,7 @@ export function DocumentSidebar({
           )}
         </div>
         
-        <ScrollArea className="h-[calc(100vh-220px)]">
+        <ScrollArea className="h-[calc(100vh-280px)]">
           <div className="px-3 pb-3 space-y-1">
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -96,10 +137,10 @@ export function DocumentSidebar({
               <div className="text-center py-8 px-4">
                 <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  {selectedTags.length > 0 ? 'No matching documents' : 'No documents yet'}
+                  {searchQuery ? 'No matching documents' : selectedTags.length > 0 ? 'No matching documents' : 'No documents yet'}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  {selectedTags.length > 0 ? 'Try different tags' : 'Upload documents to build your knowledge base'}
+                  {searchQuery ? 'Try a different search term' : selectedTags.length > 0 ? 'Try different tags' : 'Upload documents to build your knowledge base'}
                 </p>
               </div>
             ) : (
