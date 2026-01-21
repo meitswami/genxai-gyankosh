@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import { DocumentSearch } from '@/components/DocumentSearch';
 import { DocumentShare } from '@/components/DocumentShare';
 import { highlightText, getMatchContext } from '@/lib/highlightText';
+import { supabase } from '@/integrations/supabase/client';
+import Swal from 'sweetalert2';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -73,10 +75,50 @@ export function ChatSidebar({
     );
   }, [sessions, chatSearchQuery]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('gyaankosh_logged_in');
-    localStorage.removeItem('gyaankosh_user');
-    navigate('/auth');
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: 'Logout Confirmation',
+      text: 'Are you sure you want to logout from ज्ञानकोष?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: 'hsl(var(--primary))',
+      cancelButtonColor: 'hsl(var(--muted))',
+      confirmButtonText: 'Yes, Logout',
+      cancelButtonText: 'Cancel',
+      background: 'hsl(var(--background))',
+      color: 'hsl(var(--foreground))',
+      customClass: {
+        popup: 'rounded-xl shadow-lg border border-border',
+        title: 'text-lg font-semibold',
+        confirmButton: 'rounded-md px-4 py-2',
+        cancelButton: 'rounded-md px-4 py-2',
+      },
+    });
+
+    if (result.isConfirmed) {
+      // Clear local storage
+      localStorage.removeItem('gyaankosh_logged_in');
+      localStorage.removeItem('gyaankosh_user');
+      localStorage.removeItem('privateKey');
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      Swal.fire({
+        title: 'Logged Out!',
+        text: 'You have been successfully logged out.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
+        customClass: {
+          popup: 'rounded-xl shadow-lg border border-border',
+        },
+      });
+      
+      navigate('/auth');
+    }
   };
 
   return (

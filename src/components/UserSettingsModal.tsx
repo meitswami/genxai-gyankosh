@@ -12,12 +12,14 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { 
   User, Pencil, Trash2, Plus, Star, Upload, Building, Phone, Briefcase, Check,
-  Shield, History, Plug, Key, Calendar, Activity, AlertTriangle, Copy, RefreshCw
+  Shield, History, Plug, Key, Calendar, Activity, AlertTriangle, Copy, RefreshCw,
+  Globe, BookOpen
 } from 'lucide-react';
 import { useUserSettings, type UserSignature } from '@/hooks/useUserSettings';
 import { useTwoFactor } from '@/hooks/useTwoFactor';
 import { useActivityLogs } from '@/hooks/useActivityLogs';
 import { useApiIntegrations, type ApiIntegration } from '@/hooks/useApiIntegrations';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -46,6 +48,11 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
   const { settings: twoFactorSettings, enableTwoFactor, disableTwoFactor } = useTwoFactor(userId);
   const { logs, fetchLogs } = useActivityLogs(userId);
   const { integrations, addIntegration, deleteIntegration, updateIntegration } = useApiIntegrations(userId);
+  const { isKBPublicAccessEnabled, updateKBPublicAccess } = useAppSettings();
+
+  // Check if current user is admin
+  const isAdmin = userEmail === 'test@genxai.com';
+  const [kbAccessUpdating, setKbAccessUpdating] = useState(false);
 
   const [profileForm, setProfileForm] = useState({
     first_name: '',
@@ -225,6 +232,11 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
             <TabsTrigger value="activity" className="gap-2">
               <History className="w-4 h-4" /> Activity
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="admin" className="gap-2">
+                <Globe className="w-4 h-4" /> Admin
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <ScrollArea className="h-[450px]">
@@ -792,6 +804,77 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                 )}
               </div>
             </TabsContent>
+
+            {/* Admin Tab - Only visible to test@genxai.com */}
+            {isAdmin && (
+              <TabsContent value="admin" className="p-6 space-y-6 mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 border border-amber-500/30 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-800 dark:text-amber-400">Admin Settings</p>
+                      <p className="text-sm text-amber-600 dark:text-amber-500">
+                        These settings affect all users globally
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Knowledge Base Public Access Toggle */}
+                  <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <BookOpen className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Universal Knowledge Base Access</p>
+                        <p className="text-sm text-muted-foreground">
+                          Allow all users to access the knowledge base without login
+                        </p>
+                        <Badge 
+                          variant={isKBPublicAccessEnabled ? 'default' : 'secondary'} 
+                          className="mt-1"
+                        >
+                          {isKBPublicAccessEnabled ? '🌐 Public Access ON' : '🔒 Login Required'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={isKBPublicAccessEnabled}
+                      disabled={kbAccessUpdating}
+                      onCheckedChange={async (checked) => {
+                        setKbAccessUpdating(true);
+                        const success = await updateKBPublicAccess(checked);
+                        if (success) {
+                          toast({
+                            title: checked ? 'Public Access Enabled' : 'Public Access Disabled',
+                            description: checked 
+                              ? 'Knowledge base is now accessible to everyone' 
+                              : 'Users must login to access knowledge base',
+                          });
+                        } else {
+                          toast({
+                            title: 'Failed to update setting',
+                            variant: 'destructive',
+                          });
+                        }
+                        setKbAccessUpdating(false);
+                      }}
+                    />
+                  </div>
+
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                    <p className="font-medium mb-1">ℹ️ How it works:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>When enabled, anyone can view knowledge base documents</li>
+                      <li>Changes apply in real-time across all sessions</li>
+                      <li>Only you (test@genxai.com) can modify this setting</li>
+                    </ul>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
           </ScrollArea>
         </Tabs>
       </DialogContent>
