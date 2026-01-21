@@ -172,6 +172,13 @@ Type these triggers in the chat input:
 - **Security**: Enable 2FA, view backup codes
 - **Integrations**: Add custom APIs
 - **Activity**: View your action history
+- **Admin** (test@genxai.com only): Universal KB access toggle
+
+### Admin Controls
+Only the admin user (test@genxai.com) can access the Admin tab in Settings:
+- **Universal KB Access Toggle**: Enable/disable public access to knowledge base for all users
+- Changes apply in real-time across all sessions via WebSocket
+- No page refresh required - uses Supabase Realtime
 
 ### Onboarding Tour
 - First-time users see an interactive tour automatically
