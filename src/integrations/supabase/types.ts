@@ -85,6 +85,10 @@ export type Database = {
           content_type: string | null
           created_at: string
           encrypted_content: string
+          encrypted_file_key: string | null
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
           file_url: string | null
           id: string
           iv: string
@@ -96,6 +100,10 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           encrypted_content: string
+          encrypted_file_key?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           iv: string
@@ -107,6 +115,10 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           encrypted_content?: string
+          encrypted_file_key?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           iv?: string

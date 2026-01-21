@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,13 +7,18 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   MessageCircle, X, Send, Users, ArrowLeft, Search, 
-  Paperclip, FileText, Lock, Circle
+  Paperclip, FileText, Lock, Circle, Download, Image, File, Bell
 } from 'lucide-react';
 import { FriendsList } from './FriendsList';
+import { ChatSearchDialog } from './ChatSearchDialog';
 import { useUserPresence, type UserProfile } from '@/hooks/useUserPresence';
 import { useDirectMessages } from '@/hooks/useDirectMessages';
+import { useChatSearch } from '@/hooks/useChatSearch';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { highlightText } from '@/lib/highlightText';
+import { uploadEncryptedFile, downloadDecryptedFile, getFileIcon, formatFileSize } from '@/lib/encryptedFileUpload';
 import { format, isToday, isYesterday } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 import type { Document } from '@/hooks/useDocuments';
 
 interface ChatWidgetProps {
@@ -39,7 +44,12 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
   const [messageInput, setMessageInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showDocPicker, setShowDocPicker] = useState(false);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const {
     currentUser,
@@ -51,10 +61,30 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
     removeFriend,
   } = useUserPresence();
 
-  const { messages, unreadCount, sendMessage, markAsRead } = useDirectMessages(
+  const { messages, sendMessage, markAsRead } = useDirectMessages(
     currentUser?.user_id || null,
     activeChat
   );
+
+  const { 
+    totalUnread, 
+    getUnreadCount, 
+    markFriendMessagesRead,
+    requestNotificationPermission 
+  } = useMessageNotifications(currentUser?.user_id || null);
+
+  const {
+    searchResults,
+    searchQuery,
+    search: globalSearch,
+    loading: searchLoading,
+    friendsMap,
+  } = useChatSearch(currentUser?.user_id || null);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, [requestNotificationPermission]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -67,8 +97,9 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
   useEffect(() => {
     if (activeChat) {
       markAsRead();
+      markFriendMessagesRead(activeChat.user_id);
     }
-  }, [activeChat, markAsRead]);
+  }, [activeChat, markAsRead, markFriendMessagesRead]);
 
   const handleSend = async () => {
     if (!messageInput.trim() || !activeChat) return;
@@ -87,6 +118,59 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
     setShowDocPicker(false);
   };
 
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (!activeChat?.public_key || !currentUser) {
+      toast({ title: 'Cannot upload file', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const result = await uploadEncryptedFile(file, activeChat.public_key, currentUser.user_id);
+      
+      if (result) {
+        // Send file message
+        await sendMessage(
+          `📎 ${result.fileName}`,
+          'file',
+          result.fileUrl
+        );
+        
+        toast({ title: 'File sent securely' });
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast({ title: 'Failed to upload file', variant: 'destructive' });
+    } finally {
+      setUploadingFile(false);
+      setShowFilePicker(false);
+    }
+  }, [activeChat, currentUser, sendMessage, toast]);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleDownloadFile = async (msg: typeof messages[0]) => {
+    if (!currentUser || !msg.file_url) return;
+    
+    // For now, just open the file URL (signed URL from Supabase)
+    window.open(msg.file_url, '_blank');
+  };
+
+  const handleSelectFromSearch = (friendId: string) => {
+    const friend = friends.find(f => f.user_id === friendId);
+    if (friend) {
+      setActiveChat(friend);
+    }
+  };
+
   const filteredMessages = searchTerm
     ? messages.filter(m => m.content.toLowerCase().includes(searchTerm.toLowerCase()))
     : messages;
@@ -99,15 +183,15 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
         <PopoverTrigger asChild>
           <Button
             size="lg"
-            className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
+            className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all relative"
           >
             <MessageCircle className="w-6 h-6" />
-            {unreadCount > 0 && (
+            {totalUnread > 0 && (
               <Badge 
                 variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 min-w-5 px-1.5 flex items-center justify-center"
+                className="absolute -top-1 -right-1 h-5 min-w-5 px-1.5 flex items-center justify-center animate-pulse"
               >
-                {unreadCount > 99 ? '99+' : unreadCount}
+                {totalUnread > 99 ? '99+' : totalUnread}
               </Badge>
             )}
           </Button>
@@ -178,6 +262,8 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
                 <div className="space-y-3">
                   {filteredMessages.map((msg) => {
                     const isOwn = msg.sender_id === currentUser.user_id;
+                    const isFile = msg.content_type === 'file';
+                    
                     return (
                       <div
                         key={msg.id}
@@ -191,7 +277,16 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
                                 : 'bg-muted rounded-bl-md'
                             }`}
                           >
-                            {msg.content_type === 'document' ? (
+                            {isFile ? (
+                              <button
+                                onClick={() => handleDownloadFile(msg)}
+                                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                              >
+                                <File className="w-4 h-4" />
+                                <span className="text-sm underline">{msg.content}</span>
+                                <Download className="w-3 h-3" />
+                              </button>
+                            ) : msg.content_type === 'document' ? (
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4" />
                                 <span className="text-sm">{msg.content}</span>
@@ -223,33 +318,84 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
                 </div>
               </ScrollArea>
 
-              {/* Document Picker */}
-              {showDocPicker && (
-                <div className="border-t border-border p-2 max-h-40 overflow-auto">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Share a document</p>
-                  {documents.map((doc) => (
-                    <button
-                      key={doc.id}
-                      onClick={() => handleShareDocument(doc)}
-                      className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left"
-                    >
-                      <FileText className="w-4 h-4 text-primary" />
-                      <span className="text-sm truncate">{doc.alias || doc.name}</span>
-                    </button>
-                  ))}
+              {/* File/Document Picker */}
+              {(showDocPicker || showFilePicker) && (
+                <div className="border-t border-border p-2 max-h-48 overflow-auto">
+                  {showFilePicker ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Upload encrypted file</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex flex-col items-center gap-2 p-3 rounded-xl border border-dashed border-border hover:bg-muted transition-colors"
+                        >
+                          <Image className="w-6 h-6 text-primary" />
+                          <span className="text-xs">Image</span>
+                        </button>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex flex-col items-center gap-2 p-3 rounded-xl border border-dashed border-border hover:bg-muted transition-colors"
+                        >
+                          <File className="w-6 h-6 text-primary" />
+                          <span className="text-xs">Any File</span>
+                        </button>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileInputChange}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Share a document</p>
+                      {documents.map((doc) => (
+                        <button
+                          key={doc.id}
+                          onClick={() => handleShareDocument(doc)}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                        >
+                          <FileText className="w-4 h-4 text-primary" />
+                          <span className="text-sm truncate">{doc.alias || doc.name}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
 
               {/* Message Input */}
               <div className="p-3 border-t border-border flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowDocPicker(!showDocPicker)}
-                  className="h-9 w-9 shrink-0"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </Button>
+                <div className="flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setShowFilePicker(!showFilePicker);
+                      setShowDocPicker(false);
+                    }}
+                    className="h-9 w-9"
+                    disabled={uploadingFile}
+                  >
+                    {uploadingFile ? (
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Paperclip className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setShowDocPicker(!showDocPicker);
+                      setShowFilePicker(false);
+                    }}
+                    className="h-9 w-9"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                </div>
                 
                 <Input
                   placeholder="Type a message..."
@@ -277,9 +423,20 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
                   <Users className="w-5 h-5 text-primary" />
                   <span className="font-semibold">Messages</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Circle className="w-2 h-2 fill-green-500 text-green-500" />
-                  <span className="text-xs text-muted-foreground">Online</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowGlobalSearch(true)}
+                    className="h-8 w-8"
+                    title="Search all chats"
+                  >
+                    <Search className="w-4 h-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                    <span className="text-xs text-muted-foreground">Online</span>
+                  </div>
                 </div>
               </div>
 
@@ -292,11 +449,24 @@ export function ChatWidget({ documents, onShareDocument }: ChatWidgetProps) {
                 onRespondRequest={respondToRequest}
                 onRemoveFriend={removeFriend}
                 onStartChat={setActiveChat}
+                getUnreadCount={getUnreadCount}
               />
             </div>
           )}
         </PopoverContent>
       </Popover>
+
+      {/* Global Chat Search Dialog */}
+      <ChatSearchDialog
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+        searchResults={searchResults}
+        searchQuery={searchQuery}
+        onSearch={globalSearch}
+        loading={searchLoading}
+        onSelectMessage={handleSelectFromSearch}
+        friendsMap={friendsMap}
+      />
     </div>
   );
 }
