@@ -14,6 +14,8 @@ export interface Document {
   created_at: string;
   updated_at: string;
   user_id: string | null;
+  tags: string[] | null;
+  category: string | null;
 }
 
 export function useDocuments() {

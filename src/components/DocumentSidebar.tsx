@@ -1,9 +1,12 @@
-import { FileText, Trash2, BookOpen } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { FileText, Trash2, BookOpen, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import type { Document } from '@/hooks/useDocuments';
 import { getFileIcon } from '@/lib/documentParser';
 import { format } from 'date-fns';
+import { TagFilter } from '@/components/TagFilter';
 
 interface DocumentSidebarProps {
   documents: Document[];
@@ -20,6 +23,33 @@ export function DocumentSidebar({
   onDeleteDocument,
   loading,
 }: DocumentSidebarProps) {
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Get all tags from documents
+  const allTags = useMemo(() => {
+    return documents.flatMap(doc => doc.tags || []);
+  }, [documents]);
+
+  // Filter documents by selected tags
+  const filteredDocuments = useMemo(() => {
+    if (selectedTags.length === 0) return documents;
+    return documents.filter(doc => 
+      selectedTags.some(tag => doc.tags?.includes(tag))
+    );
+  }, [documents, selectedTags]);
+
+  const handleTagSelect = (tag: string) => {
+    setSelectedTags(prev => [...prev, tag]);
+  };
+
+  const handleTagRemove = (tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const handleClearTags = () => {
+    setSelectedTags([]);
+  };
+
   return (
     <aside className="w-80 border-r border-border bg-sidebar flex flex-col h-full">
       {/* Header */}
@@ -37,30 +67,43 @@ export function DocumentSidebar({
 
       {/* Documents List */}
       <div className="flex-1 overflow-hidden">
-        <div className="p-3">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Knowledge Base ({documents.length})
-          </h2>
+        <div className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Knowledge Base ({filteredDocuments.length}/{documents.length})
+            </h2>
+          </div>
+          
+          {/* Tag Filter */}
+          {allTags.length > 0 && (
+            <TagFilter
+              allTags={allTags}
+              selectedTags={selectedTags}
+              onTagSelect={handleTagSelect}
+              onTagRemove={handleTagRemove}
+              onClearAll={handleClearTags}
+            />
+          )}
         </div>
         
-        <ScrollArea className="h-[calc(100vh-180px)]">
+        <ScrollArea className="h-[calc(100vh-220px)]">
           <div className="px-3 pb-3 space-y-1">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : documents.length === 0 ? (
+            ) : filteredDocuments.length === 0 ? (
               <div className="text-center py-8 px-4">
                 <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  No documents yet
+                  {selectedTags.length > 0 ? 'No matching documents' : 'No documents yet'}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  Upload documents to build your knowledge base
+                  {selectedTags.length > 0 ? 'Try different tags' : 'Upload documents to build your knowledge base'}
                 </p>
               </div>
             ) : (
-              documents.map((doc) => (
+              filteredDocuments.map((doc) => (
                 <div
                   key={doc.id}
                   className={`
@@ -92,6 +135,31 @@ export function DocumentSidebar({
                         <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1">
                           {doc.summary}
                         </p>
+                      )}
+                      {/* Tags display */}
+                      {doc.tags && doc.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {doc.tags.slice(0, 3).map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="secondary"
+                              className="text-[9px] h-4 px-1.5"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {doc.tags.length > 3 && (
+                            <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                              +{doc.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      {/* Category badge */}
+                      {doc.category && (
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 mt-1">
+                          {doc.category}
+                        </Badge>
                       )}
                     </div>
                   </div>
