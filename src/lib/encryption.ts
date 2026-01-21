@@ -133,7 +133,99 @@ export async function decryptMessage(
   return decoder.decode(decryptedBuffer);
 }
 
-// Helper functions
+// ============ GROUP CHAT ENCRYPTION ============
+
+// Generate a symmetric key for group encryption (as base64 string)
+export async function generateGroupKey(): Promise<string> {
+  const key = await window.crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  const exported = await window.crypto.subtle.exportKey('raw', key);
+  return arrayBufferToBase64(exported);
+}
+
+// Encrypt group key for a member using their public key
+export async function encryptGroupKey(groupKey: string, publicKeyBase64: string): Promise<string> {
+  const publicKey = await importPublicKey(publicKeyBase64);
+  const keyBuffer = base64ToArrayBuffer(groupKey);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    publicKey,
+    keyBuffer
+  );
+  return arrayBufferToBase64(encrypted);
+}
+
+// Decrypt group key using private key
+export async function decryptGroupKey(encryptedKey: string, privateKeyBase64: string): Promise<string> {
+  const privateKey = await importPrivateKey(privateKeyBase64);
+  const encryptedBuffer = base64ToArrayBuffer(encryptedKey);
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    encryptedBuffer
+  );
+  return arrayBufferToBase64(decrypted);
+}
+
+// Encrypt message with group symmetric key
+export async function encryptWithGroupKey(
+  message: string,
+  groupKeyBase64: string
+): Promise<{ encryptedContent: string; iv: string }> {
+  const keyBuffer = base64ToArrayBuffer(groupKeyBase64);
+  const key = await window.crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(message)
+  );
+  
+  return {
+    encryptedContent: arrayBufferToBase64(encrypted),
+    iv: arrayBufferToBase64(iv.buffer),
+  };
+}
+
+// Decrypt message with group symmetric key
+export async function decryptWithGroupKey(
+  encryptedContent: string,
+  iv: string,
+  groupKeyBase64: string
+): Promise<string> {
+  const keyBuffer = base64ToArrayBuffer(groupKeyBase64);
+  const key = await window.crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+  
+  const ivBuffer = base64ToArrayBuffer(iv);
+  const contentBuffer = base64ToArrayBuffer(encryptedContent);
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(ivBuffer) },
+    key,
+    contentBuffer
+  );
+  
+  return new TextDecoder().decode(decrypted);
+}
+
+// ============ HELPER FUNCTIONS ============
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
