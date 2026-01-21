@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, KeyboardEvent, DragEvent } from 'react';
-import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload } from 'lucide-react';
+import { useState, useRef, useEffect, KeyboardEvent, DragEvent, useCallback } from 'react';
+import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload, AtSign, Hash, Zap, Globe } from 'lucide-react';
 import { getSupportedFileTypes, getSupportedFileTypesLabel } from '@/lib/documentParser';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
@@ -14,12 +15,27 @@ import type { Document } from '@/hooks/useDocuments';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { SpeechButton } from '@/components/SpeechButton';
 import { useToast } from '@/hooks/use-toast';
+import type { ApiIntegration } from '@/hooks/useApiIntegrations';
+
+interface Friend {
+  friend_id: string;
+  display_name?: string;
+  email?: string;
+}
+
+interface MentionSuggestion {
+  type: 'user' | 'document' | 'api' | 'search';
+  id: string;
+  label: string;
+  sublabel?: string;
+  icon: string;
+}
 
 interface ChatInputProps {
   documents: Document[];
   selectedDocument: Document | null;
   onSelectDocument: (doc: Document | null) => void;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, mentions?: { type: string; id: string; label: string }[]) => void;
   onUploadFile: (file: File) => void;
   onGenerateFaq: (count: number) => void;
   isLoading: boolean;
@@ -27,6 +43,9 @@ interface ChatInputProps {
   speechButtonRef?: React.RefObject<HTMLButtonElement>;
   focusSearch?: boolean;
   onSearchFocusHandled?: () => void;
+  friends?: Friend[];
+  integrations?: ApiIntegration[];
+  onMention?: (type: string, id: string) => void;
 }
 
 export function ChatInput({
@@ -41,6 +60,9 @@ export function ChatInput({
   speechButtonRef,
   focusSearch,
   onSearchFocusHandled,
+  friends = [],
+  integrations = [],
+  onMention,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
@@ -48,6 +70,12 @@ export function ChatInput({
   const [showFaqPopover, setShowFaqPopover] = useState(false);
   const [faqCount, setFaqCount] = useState('5');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [mentions, setMentions] = useState<{ type: string; id: string; label: string }[]>([]);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionSuggestions, setMentionSuggestions] = useState<MentionSuggestion[]>([]);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionType, setMentionType] = useState<'@' | '#' | '!' | null>(null);
+  const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -79,10 +107,133 @@ export function ChatInput({
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Detect mention triggers (@, #, !)
   useEffect(() => {
-    // Check for # trigger
+    const lastChar = message.slice(-1);
+    const lastWord = message.split(/\s/).pop() || '';
+    
+    if (lastChar === '@') {
+      setMentionType('@');
+      setMentionSearchTerm('');
+      setShowMentionSuggestions(true);
+      setShowDocumentPicker(false);
+    } else if (lastChar === '#') {
+      setMentionType('#');
+      setMentionSearchTerm('');
+      setShowMentionSuggestions(true);
+      setShowDocumentPicker(false);
+    } else if (lastChar === '!') {
+      setMentionType('!');
+      setMentionSearchTerm('');
+      setShowMentionSuggestions(true);
+      setShowDocumentPicker(false);
+    } else if (mentionType && !lastWord.startsWith(mentionType)) {
+      setShowMentionSuggestions(false);
+      setMentionType(null);
+    } else if (mentionType) {
+      const triggerIndex = lastWord.indexOf(mentionType);
+      if (triggerIndex !== -1) {
+        setMentionSearchTerm(lastWord.slice(triggerIndex + 1).toLowerCase());
+      }
+    }
+  }, [message, mentionType]);
+
+  // Build mention suggestions
+  useEffect(() => {
+    if (!mentionType) {
+      setMentionSuggestions([]);
+      return;
+    }
+
+    let newSuggestions: MentionSuggestion[] = [];
+
+    if (mentionType === '@') {
+      newSuggestions = friends
+        .filter(f => 
+          (f.display_name?.toLowerCase().includes(mentionSearchTerm) || 
+           f.email?.toLowerCase().includes(mentionSearchTerm))
+        )
+        .slice(0, 5)
+        .map(f => ({
+          type: 'user' as const,
+          id: f.friend_id,
+          label: f.display_name || f.email || f.friend_id.slice(0, 8),
+          sublabel: f.email,
+          icon: '👤',
+        }));
+    } else if (mentionType === '#') {
+      newSuggestions = documents
+        .filter(d => 
+          d.alias.toLowerCase().includes(mentionSearchTerm) ||
+          d.name.toLowerCase().includes(mentionSearchTerm)
+        )
+        .slice(0, 5)
+        .map(d => ({
+          type: 'document' as const,
+          id: d.id,
+          label: d.alias,
+          sublabel: d.category || undefined,
+          icon: '📄',
+        }));
+    } else if (mentionType === '!') {
+      const apiSuggestions = integrations
+        .filter(i => 
+          i.is_active &&
+          (i.name.toLowerCase().includes(mentionSearchTerm) ||
+           i.description?.toLowerCase().includes(mentionSearchTerm))
+        )
+        .slice(0, 3)
+        .map(i => ({
+          type: 'api' as const,
+          id: i.id,
+          label: i.name,
+          sublabel: i.description || i.base_url,
+          icon: i.icon,
+        }));
+
+      const searchEngines: MentionSuggestion[] = [
+        { type: 'search' as const, id: 'google', label: 'Google Search', sublabel: 'Search the web with Google', icon: '🔍' },
+        { type: 'search' as const, id: 'bing', label: 'Bing Search', sublabel: 'Search the web with Bing', icon: '🌐' },
+      ].filter(s => s.label.toLowerCase().includes(mentionSearchTerm));
+
+      newSuggestions = [...apiSuggestions, ...searchEngines].slice(0, 5);
+    }
+
+    setMentionSuggestions(newSuggestions);
+    setSelectedMentionIndex(0);
+  }, [mentionType, mentionSearchTerm, friends, documents, integrations]);
+
+  const selectMentionSuggestion = useCallback((suggestion: MentionSuggestion) => {
+    const triggerIndex = message.lastIndexOf(mentionType!);
+    const newValue = message.slice(0, triggerIndex) + `${mentionType}${suggestion.label} `;
+    
+    setMessage(newValue);
+    setMentions(prev => [...prev, { type: suggestion.type, id: suggestion.id, label: suggestion.label }]);
+    setShowMentionSuggestions(false);
+    setMentionType(null);
+    
+    // If it's a document mention, select it
+    if (suggestion.type === 'document') {
+      const doc = documents.find(d => d.id === suggestion.id);
+      if (doc) onSelectDocument(doc);
+    }
+    
+    onMention?.(suggestion.type, suggestion.id);
+    textareaRef.current?.focus();
+  }, [message, mentionType, documents, onSelectDocument, onMention]);
+
+  const removeMention = (index: number) => {
+    const removed = mentions[index];
+    setMentions(prev => prev.filter((_, i) => i !== index));
+    if (removed.type === 'document') {
+      onSelectDocument(null);
+    }
+  };
+
+  useEffect(() => {
+    // Legacy # trigger for document picker (fallback)
     const hashIndex = message.lastIndexOf('#');
-    if (hashIndex !== -1 && !selectedDocument) {
+    if (hashIndex !== -1 && !selectedDocument && !showMentionSuggestions) {
       const textAfterHash = message.slice(hashIndex + 1);
       if (!textAfterHash.includes(' ')) {
         setSearchTerm(textAfterHash);
@@ -90,8 +241,10 @@ export function ChatInput({
         return;
       }
     }
-    setShowDocumentPicker(false);
-  }, [message, selectedDocument]);
+    if (!showMentionSuggestions) {
+      setShowDocumentPicker(false);
+    }
+  }, [message, selectedDocument, showMentionSuggestions]);
 
   // Focus search when triggered by keyboard shortcut
   useEffect(() => {
@@ -114,7 +267,21 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(i => (i + 1) % mentionSuggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(i => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        selectMentionSuggestion(mentionSuggestions[selectedMentionIndex]);
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false);
+        setMentionType(null);
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -122,8 +289,9 @@ export function ChatInput({
 
   const handleSend = () => {
     if (message.trim() && !isLoading) {
-      onSendMessage(message.trim());
+      onSendMessage(message.trim(), mentions);
       setMessage('');
+      setMentions([]);
     }
   };
 
@@ -197,6 +365,75 @@ export function ChatInput({
       )}
 
       <div className="max-w-3xl mx-auto">
+        {/* Active Mentions Display */}
+        {mentions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2 animate-fade-in">
+            {mentions.map((m, i) => (
+              <Badge 
+                key={i} 
+                variant="secondary" 
+                className="gap-1 cursor-pointer hover:bg-destructive/20"
+                onClick={() => removeMention(i)}
+              >
+                {m.type === 'user' && <AtSign className="w-3 h-3" />}
+                {m.type === 'document' && <Hash className="w-3 h-3" />}
+                {(m.type === 'api' || m.type === 'search') && <Zap className="w-3 h-3" />}
+                {m.label}
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Mention Suggestions Dropdown */}
+        {showMentionSuggestions && mentionSuggestions.length > 0 && (
+          <div className="mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden animate-fade-in z-50">
+            <div className="p-2 border-b border-border bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {mentionType === '@' && (
+                  <>
+                    <AtSign className="w-3 h-3" />
+                    <span>Mention a friend</span>
+                  </>
+                )}
+                {mentionType === '#' && (
+                  <>
+                    <Hash className="w-3 h-3" />
+                    <span>Reference a document</span>
+                  </>
+                )}
+                {mentionType === '!' && (
+                  <>
+                    <Zap className="w-3 h-3" />
+                    <span>Use API or web search</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {mentionSuggestions.map((s, i) => (
+                <button
+                  key={`${s.type}-${s.id}`}
+                  className={cn(
+                    "w-full text-left px-3 py-2 flex items-center gap-2 transition-colors",
+                    i === selectedMentionIndex ? "bg-accent" : "hover:bg-muted/50"
+                  )}
+                  onClick={() => selectMentionSuggestion(s)}
+                >
+                  <span className="text-lg">{s.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{s.label}</p>
+                    {s.sublabel && (
+                      <p className="text-xs text-muted-foreground truncate">{s.sublabel}</p>
+                    )}
+                  </div>
+                  {s.type === 'search' && <Globe className="w-4 h-4 text-muted-foreground" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Selected Document Chip */}
         {selectedDocument && (
           <div className="mb-3 flex items-center gap-2 animate-fade-in">
@@ -345,10 +582,10 @@ export function ChatInput({
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          {documents.length > 0 && !selectedDocument 
-            ? '🔍 Global search mode: Ask anything across all documents • Use # for specific document'
-            : '🎤 Voice input • Drag & drop or click 📎 to upload • PDF, DOCX, Images, Videos'
-          }
+          <span className="font-mono text-primary">@</span> friends • 
+          <span className="font-mono text-primary ml-1">#</span> documents • 
+          <span className="font-mono text-primary ml-1">!</span> APIs & web search •
+          <span className="ml-1">🎤 voice • 📎 upload</span>
         </p>
       </div>
     </div>
