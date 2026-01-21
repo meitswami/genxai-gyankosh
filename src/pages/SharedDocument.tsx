@@ -38,12 +38,18 @@ export default function SharedDocument() {
         // Get shared document info
         const { data: shareData, error: shareError } = await supabase
           .from('shared_documents')
-          .select('document_id, view_count')
+          .select('document_id, view_count, expires_at')
           .eq('share_token', token)
           .single();
 
         if (shareError || !shareData) {
           setError('Document not found or link has expired');
+          return;
+        }
+
+        // Check if link has expired
+        if (shareData.expires_at && new Date(shareData.expires_at) < new Date()) {
+          setError('This share link has expired');
           return;
         }
 

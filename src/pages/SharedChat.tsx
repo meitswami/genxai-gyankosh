@@ -43,12 +43,18 @@ export default function SharedChat() {
       try {
         const { data, error: fetchError } = await supabase
           .from('shared_chats')
-          .select('title, messages_snapshot, created_at')
+          .select('title, messages_snapshot, created_at, expires_at')
           .eq('share_token', token)
           .single();
 
         if (fetchError || !data) {
           setError('Chat not found or link has expired');
+          return;
+        }
+
+        // Check if link has expired
+        if (data.expires_at && new Date(data.expires_at) < new Date()) {
+          setError('This share link has expired');
           return;
         }
 

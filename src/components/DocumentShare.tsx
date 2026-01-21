@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Share2, Link2, Copy, Check, Mail, X, Loader2, ExternalLink } from 'lucide-react';
+import { Share2, Link2, Copy, Check, Mail, X, Loader2, ExternalLink, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,10 +10,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Document } from '@/hooks/useDocuments';
 import { getDocumentShareUrl, getShareBaseUrl } from '@/lib/shareUrl';
+import { addDays, format } from 'date-fns';
+
+type ExpirationOption = 'never' | '7days' | '30days';
 
 interface DocumentShareProps {
   document: Document;
@@ -26,6 +36,8 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [expiration, setExpiration] = useState<ExpirationOption>('never');
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const { toast } = useToast();
 
   const createShareLink = async () => {
@@ -38,14 +50,23 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
       // Check if share already exists
       const { data: existing } = await supabase
         .from('shared_documents')
-        .select('share_token')
+        .select('share_token, expires_at')
         .eq('document_id', document.id)
         .single();
 
       if (existing) {
         const link = getDocumentShareUrl(existing.share_token);
         setShareLink(link);
+        setExpiresAt(existing.expires_at ? new Date(existing.expires_at) : null);
         return;
+      }
+
+      // Calculate expiration date
+      let expires_at: string | null = null;
+      if (expiration === '7days') {
+        expires_at = addDays(new Date(), 7).toISOString();
+      } else if (expiration === '30days') {
+        expires_at = addDays(new Date(), 30).toISOString();
       }
 
       // Create new share
@@ -54,14 +75,16 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
         .insert({
           document_id: document.id,
           user_id: user.id,
+          expires_at,
         })
-        .select('share_token')
+        .select('share_token, expires_at')
         .single();
 
       if (error) throw error;
 
       const link = getDocumentShareUrl(data.share_token);
       setShareLink(link);
+      setExpiresAt(data.expires_at ? new Date(data.expires_at) : null);
     } catch (error) {
       console.error('Error creating share link:', error);
       toast({
@@ -174,41 +197,67 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
               </p>
               
               {shareLink ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={shareLink}
-                    readOnly
-                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border truncate"
-                  />
-                  <Button onClick={copyLink} size="sm" className="gap-1.5">
-                    {copied ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => window.open(shareLink, '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={shareLink}
+                      readOnly
+                      className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border truncate"
+                    />
+                    <Button onClick={copyLink} size="sm" className="gap-1.5">
+                      {copied ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(shareLink, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {expiresAt && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="w-3 h-3" />
+                      Expires on {format(expiresAt, 'MMM d, yyyy')}
+                    </p>
+                  )}
                 </div>
               ) : (
-                <Button 
-                  onClick={createShareLink} 
-                  disabled={isCreatingLink}
-                  className="w-full gap-2"
-                >
-                  {isCreatingLink ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Link2 className="w-4 h-4" />
-                  )}
-                  Generate Share Link
-                </Button>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="doc-expiration" className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Link Expiration
+                    </Label>
+                    <Select value={expiration} onValueChange={(v) => setExpiration(v as ExpirationOption)}>
+                      <SelectTrigger id="doc-expiration">
+                        <SelectValue placeholder="Select expiration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="never">Never expires</SelectItem>
+                        <SelectItem value="7days">Expires in 7 days</SelectItem>
+                        <SelectItem value="30days">Expires in 30 days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={createShareLink} 
+                    disabled={isCreatingLink}
+                    className="w-full gap-2"
+                  >
+                    {isCreatingLink ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Link2 className="w-4 h-4" />
+                    )}
+                    Generate Share Link
+                  </Button>
+                </div>
               )}
             </TabsContent>
             
