@@ -23,6 +23,7 @@
 | **2FA Security** | ✅ Available | ✅ Microsoft Authenticator |
 | **Activity Logs** | ❌ Limited | ✅ Detailed audit trail |
 | **Organization RBAC** | ❌ Enterprise only | ✅ Role-based access control |
+| **Onboarding Tour** | ❌ Not available | ✅ Interactive walkthrough |
 | **Usage Limits** | Fixed plans | ✅ Configurable per organization |
 | **Self-Hosted Option** | ❌ Not available | ✅ Full control |
 | **Pricing** | $20/month+ | Free / Self-hosted |
@@ -79,7 +80,16 @@
 - **⌨️ Typing Indicators**: Real-time status
 - **😀 Reactions**: Emoji reactions on messages
 
-### ⌨️ Keyboard Shortcuts
+### 🎓 Onboarding Tour
+New users are greeted with an interactive walkthrough covering:
+- Document upload and management
+- Smart mention system (@, #, !)
+- Group chat with E2E encryption
+- Keyboard shortcuts
+- Settings and security
+
+## ⌨️ Keyboard Shortcuts
+
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+N` | New Chat |
@@ -87,7 +97,26 @@
 | `Ctrl+M` | Voice Input |
 | `Ctrl+P` | Preview Document |
 | `Ctrl+E` | Export Chat |
-| `Ctrl+/` | Show Shortcuts |
+| `Ctrl+B` | Toggle Knowledge Base |
+| `Ctrl+/` | Show Shortcuts & Mentions Guide |
+| `Escape` | Close Dialog |
+
+## 📝 Smart Mentions Guide
+
+Type these triggers in the chat input:
+
+| Trigger | Description | Examples |
+|---------|-------------|----------|
+| **@** | Mention a friend or colleague | `@john`, `@team` |
+| **#** | Reference a document from knowledge base | `#report.pdf`, `#contract` |
+| **!** | Web search or API integration | `!google AI trends`, `!bing weather`, `!api-name` |
+
+### How Mentions Work
+1. Type the trigger symbol (`@`, `#`, or `!`)
+2. A tooltip appears showing what you can do
+3. Type to filter suggestions
+4. Press `Tab` or `Enter` to select
+5. Continue typing your message
 
 ## 🛠️ Tech Stack
 
@@ -129,7 +158,7 @@ Type these triggers in the chat input:
 1. Click the "Groups" button in the header
 2. Create a new group and invite friends
 3. All messages are E2E encrypted
-4. Admins can add/remove members
+4. Click "Groups" again to close the panel
 
 ### Document Templates
 1. Open Settings → Signatures to set up your signatures
@@ -143,6 +172,10 @@ Type these triggers in the chat input:
 - **Security**: Enable 2FA, view backup codes
 - **Integrations**: Add custom APIs
 - **Activity**: View your action history
+
+### Onboarding Tour
+- First-time users see an interactive tour automatically
+- To replay: Clear localStorage key `gyaankosh_onboarding_complete`
 
 ## 🔒 Security
 
