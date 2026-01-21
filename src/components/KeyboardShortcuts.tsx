@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Keyboard, X } from 'lucide-react';
+import { Keyboard, AtSign, Hash, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ShortcutAction {
   key: string;
@@ -34,6 +35,30 @@ const shortcuts = [
   { keys: ['Ctrl', 'B'], description: 'Toggle Knowledge Base', action: 'knowledgeBase' },
   { keys: ['Ctrl', '/'], description: 'Show Shortcuts', action: 'shortcuts' },
   { keys: ['Escape'], description: 'Close Dialog', action: 'close' },
+];
+
+const mentionShortcuts = [
+  { 
+    symbol: '@', 
+    name: 'Mention User', 
+    description: 'Tag a friend or colleague in your message',
+    examples: ['@john', '@team'],
+    icon: AtSign
+  },
+  { 
+    symbol: '#', 
+    name: 'Reference Document', 
+    description: 'Include a document from your knowledge base for context',
+    examples: ['#report.pdf', '#contract'],
+    icon: Hash
+  },
+  { 
+    symbol: '!', 
+    name: 'External Search/API', 
+    description: 'Search the web or call integrated APIs',
+    examples: ['!google AI trends', '!bing weather', '!api-name'],
+    icon: Zap
+  },
 ];
 
 export function KeyboardShortcuts({
@@ -116,40 +141,85 @@ export function KeyboardShortcuts({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Keyboard className="w-5 h-5" />
-              Keyboard Shortcuts
+              Shortcuts & Mentions Guide
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-2">
-            {shortcuts.map((shortcut) => (
-              <div
-                key={shortcut.action}
-                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50"
-              >
-                <span className="text-sm text-foreground">
-                  {shortcut.description}
-                </span>
-                <div className="flex items-center gap-1">
-                  {shortcut.keys.map((key, i) => (
-                    <span key={i}>
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {key}
-                      </Badge>
-                      {i < shortcut.keys.length - 1 && (
-                        <span className="text-muted-foreground mx-0.5">+</span>
-                      )}
-                    </span>
-                  ))}
+          <Tabs defaultValue="keyboard" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="keyboard">Keyboard</TabsTrigger>
+              <TabsTrigger value="mentions">Mentions</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="keyboard" className="space-y-2 mt-4">
+              {shortcuts.map((shortcut) => (
+                <div
+                  key={shortcut.action}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50"
+                >
+                  <span className="text-sm text-foreground">
+                    {shortcut.description}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {shortcut.keys.map((key, i) => (
+                      <span key={i}>
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {key}
+                        </Badge>
+                        {i < shortcut.keys.length - 1 && (
+                          <span className="text-muted-foreground mx-0.5">+</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </TabsContent>
+            
+            <TabsContent value="mentions" className="space-y-3 mt-4">
+              {mentionShortcuts.map((mention) => (
+                <div
+                  key={mention.symbol}
+                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <mention.icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="font-mono text-sm px-2">
+                        {mention.symbol}
+                      </Badge>
+                      <span className="font-medium text-sm">{mention.name}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {mention.description}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {mention.examples.map((example, i) => (
+                      <Badge key={i} variant="outline" className="font-mono text-xs">
+                        {example}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              
+              <div className="p-3 bg-muted/50 rounded-lg mt-4">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Tip:</strong> Type the symbol followed by your query. 
+                  Suggestions will appear as you type.
+                </p>
               </div>
-            ))}
-          </div>
+            </TabsContent>
+          </Tabs>
 
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+          <div className="mt-2 p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground text-center">
               Press <Badge variant="outline" className="font-mono text-xs mx-1">Ctrl</Badge> + 
               <Badge variant="outline" className="font-mono text-xs mx-1">/</Badge> 
