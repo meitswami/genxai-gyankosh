@@ -341,6 +341,24 @@ export function ChatInput({
     }
   };
 
+  // Tooltip hints for mentions
+  const getMentionHint = () => {
+    if (!message) return null;
+    const lastChar = message.slice(-1);
+    if (lastChar === '@' && !showMentionSuggestions) {
+      return { icon: <AtSign className="w-3 h-3" />, text: 'Type to mention a friend' };
+    }
+    if (lastChar === '#' && !showMentionSuggestions) {
+      return { icon: <Hash className="w-3 h-3" />, text: 'Type to reference a document' };
+    }
+    if (lastChar === '!' && !showMentionSuggestions) {
+      return { icon: <Zap className="w-3 h-3" />, text: 'Type for web search or API' };
+    }
+    return null;
+  };
+
+  const mentionHint = getMentionHint();
+
   return (
     <div 
       ref={dropZoneRef}
@@ -360,6 +378,16 @@ export function ChatInput({
             <Upload className="w-8 h-8 animate-bounce" />
             <p className="font-medium">Drop your file here</p>
             <p className="text-xs text-muted-foreground">PDF, DOCX, Images, TXT</p>
+          </div>
+        </div>
+      )}
+
+      {/* Mention Hint Tooltip */}
+      {mentionHint && (
+        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-20 animate-fade-in">
+          <div className="flex items-center gap-1.5 bg-popover border border-border rounded-full px-3 py-1.5 shadow-lg">
+            {mentionHint.icon}
+            <span className="text-xs text-muted-foreground">{mentionHint.text}</span>
           </div>
         </div>
       )}

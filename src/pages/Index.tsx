@@ -25,6 +25,7 @@ import { ExcelSearchPanel } from '@/components/ExcelSearchPanel';
 import { ChatWidget } from '@/components/ChatWidget';
 import { UserSettingsModal } from '@/components/UserSettingsModal';
 import { GroupChatPanel } from '@/components/GroupChatPanel';
+import { OnboardingTour, useOnboardingTour } from '@/components/OnboardingTour';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,6 +73,9 @@ const Index = () => {
   
   // Web search
   const { search: webSearch, isSearching } = useWebSearch();
+  
+  // Onboarding tour
+  const { showTour, completeTour } = useOnboardingTour();
   
   // Batch upload hook
   const { uploads, isUploading: isBatchUploading, uploadFiles, clearCompleted, cancelUpload } = useBatchUpload({
@@ -642,9 +646,9 @@ const Index = () => {
                 <span className="hidden sm:inline">Excel</span>
               </Button>
               <Button
-                variant="outline"
+                variant={showGroupChat ? "default" : "outline"}
                 size="sm"
-                onClick={() => setShowGroupChat(true)}
+                onClick={() => setShowGroupChat(prev => !prev)}
                 className="gap-1.5"
                 title="Group Chat - E2E Encrypted"
               >
@@ -769,6 +773,9 @@ const Index = () => {
         userEmail={user?.email}
         userCreatedAt={user?.created_at}
       />
+
+      {/* Onboarding Tour */}
+      {showTour && <OnboardingTour onComplete={completeTour} />}
     </div>
   );
 };
