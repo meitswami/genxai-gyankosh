@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Eye, LogOut, FileSpreadsheet, Bell, Upload, Settings } from 'lucide-react';
+import { Eye, LogOut, FileSpreadsheet, Bell, Upload, Settings, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
@@ -7,6 +7,9 @@ import { useChatSessions } from '@/hooks/useChatSessions';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewNotifications } from '@/hooks/useViewNotifications';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
+import { useUserPresence } from '@/hooks/useUserPresence';
+import { useApiIntegrations } from '@/hooks/useApiIntegrations';
+import { useWebSearch } from '@/hooks/useWebSearch';
 import { extractTextFromFile } from '@/lib/documentParser';
 import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatArea } from '@/components/ChatArea';
@@ -21,6 +24,7 @@ import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { ExcelSearchPanel } from '@/components/ExcelSearchPanel';
 import { ChatWidget } from '@/components/ChatWidget';
 import { UserSettingsModal } from '@/components/UserSettingsModal';
+import { GroupChatPanel } from '@/components/GroupChatPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +33,7 @@ const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-docum
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 const EMBEDDING_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
 const SEMANTIC_SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
+const WEB_SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`;
 
 const Index = () => {
   const { isLoggedIn, loading: authLoading, logout, user } = useAuth();
@@ -56,6 +61,18 @@ const Index = () => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showBatchProgress, setShowBatchProgress] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGroupChat, setShowGroupChat] = useState(false);
+  const [activeMentions, setActiveMentions] = useState<{ type: string; id: string; label: string }[]>([]);
+  
+  // User presence and friends
+  const { friends, currentUser } = useUserPresence();
+  
+  // API integrations
+  const { integrations, callApi } = useApiIntegrations(user?.id || null);
+  
+  // Web search
+  const { search: webSearch, isSearching } = useWebSearch();
+  
   // Batch upload hook
   const { uploads, isUploading: isBatchUploading, uploadFiles, clearCompleted, cancelUpload } = useBatchUpload({
     maxConcurrent: 3,
@@ -293,7 +310,83 @@ const Index = () => {
     }
   }, [toast, uploadDocument]);
 
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = useCallback(async (message: string, mentions?: { type: string; id: string; label: string }[]) => {
+    // Check for web search mentions first
+    const searchMention = mentions?.find(m => m.type === 'search');
+    if (searchMention) {
+      // Handle web search
+      let sessionId = currentSessionId;
+      if (!sessionId) {
+        const newSession = await createSession(`🌐 ${searchMention.label}: ${generateTitle(message)}`);
+        if (!newSession) return;
+        sessionId = newSession.id;
+      }
+
+      // Save user message
+      await supabase.from('chat_messages').insert({
+        session_id: sessionId,
+        role: 'user',
+        content: `!${searchMention.label} ${message}`,
+        document_id: null,
+      });
+
+      // Add user message to UI
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        content: `🌐 Searching ${searchMention.label}: ${message}`,
+        createdAt: new Date(),
+      }]);
+
+      // Perform web search
+      try {
+        const engine = searchMention.id === 'bing' ? 'bing' : 'google';
+        let searchResult = '';
+        
+        await webSearch(message, engine as 'google' | 'bing', (chunk) => {
+          searchResult += chunk;
+          // Update message in real-time
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant') {
+              return [...prev.slice(0, -1), { ...last, content: searchResult }];
+            }
+            return [...prev, {
+              id: crypto.randomUUID(),
+              role: 'assistant' as const,
+              content: searchResult,
+              createdAt: new Date(),
+            }];
+          });
+        });
+
+        // Save final response
+        await supabase.from('chat_messages').insert({
+          session_id: sessionId,
+          role: 'assistant',
+          content: searchResult,
+          document_id: null,
+        });
+      } catch (error) {
+        toast({
+          title: 'Search Failed',
+          description: error instanceof Error ? error.message : 'Could not perform web search',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
+    // Check for API mentions
+    const apiMention = mentions?.find(m => m.type === 'api');
+    if (apiMention) {
+      toast({
+        title: 'API Integration',
+        description: `Querying ${apiMention.label}...`,
+      });
+      // API call would be handled here with callApi
+    }
+
     // Allow global search when no document is selected (searches all documents)
     const isGlobalSearch = !selectedDocument;
     
@@ -548,6 +641,16 @@ const Index = () => {
                 <FileSpreadsheet className="w-4 h-4" />
                 <span className="hidden sm:inline">Excel</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGroupChat(true)}
+                className="gap-1.5"
+                title="Group Chat - E2E Encrypted"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Groups</span>
+              </Button>
               {notifications.length > 0 && (
                 <Badge variant="secondary" className="gap-1">
                   <Bell className="w-3 h-3" />
@@ -594,11 +697,20 @@ const Index = () => {
           onSendMessage={handleSendMessage}
           onUploadFile={handleFileUpload}
           onGenerateFaq={handleGenerateFaq}
-          isLoading={isLoading}
+          isLoading={isLoading || isSearching}
           isUploading={isUploading}
           speechButtonRef={speechButtonRef}
           focusSearch={searchFocused}
           onSearchFocusHandled={() => setSearchFocused(false)}
+          friends={friends.map(f => ({ 
+            friend_id: f.user_id, 
+            display_name: f.display_name || undefined, 
+            email: undefined 
+          }))}
+          integrations={integrations}
+          onMention={(type, id) => {
+            console.log(`Mention: ${type} - ${id}`);
+          }}
         />
       </main>
 
@@ -640,6 +752,14 @@ const Index = () => {
 
       {/* Chat Widget for User-to-User messaging */}
       <ChatWidget documents={documents} />
+
+      {/* Group Chat Panel */}
+      {showGroupChat && (
+        <GroupChatPanel
+          userId={user?.id || null}
+          onClose={() => setShowGroupChat(false)}
+        />
+      )}
 
       {/* User Settings Modal */}
       <UserSettingsModal
