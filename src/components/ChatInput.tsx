@@ -570,7 +570,7 @@ export function ChatInput({
                   ? `Ask about ${selectedDocument.alias}...`
                   : documents.length > 0 
                     ? "Ask anything across your knowledge base..."
-                    : "Upload a document to start chatting..."
+                    : "Ask me anything... (or upload docs for your knowledge base)"
               }
               className="min-h-[44px] max-h-32 resize-none pr-12"
               rows={1}
@@ -596,7 +596,7 @@ export function ChatInput({
           {/* Send Button */}
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || isLoading || (documents.length === 0 && !selectedDocument)}
+            disabled={!message.trim() || isLoading}
             className="flex-shrink-0 h-10 w-10"
             size="icon"
           >

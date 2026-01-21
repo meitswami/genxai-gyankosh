@@ -483,12 +483,8 @@ const Index = () => {
     } else if (selectedDocument) {
       response = await sendMessage(message, selectedDocument);
     } else {
-      toast({
-        title: 'No documents available',
-        description: 'Please upload a document first to start chatting',
-        variant: 'destructive',
-      });
-      return;
+      // No documents - allow general chat without document context
+      response = await sendMessage(message, null);
     }
 
     // Save assistant response to DB
@@ -599,7 +595,7 @@ const Index = () => {
                   ? `Chatting with: ${selectedDocument.alias}` 
                   : documents.length > 0
                     ? '🔍 Searching across all documents'
-                    : 'Upload a document to start'
+                    : '💬 Ask me anything'
                 }
               </h2>
               {selectedDocument?.summary && (

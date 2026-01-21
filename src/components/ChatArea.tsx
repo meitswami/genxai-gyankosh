@@ -54,21 +54,20 @@ export function ChatArea({ messages, isLoading, hasDocuments = false, onSendMess
             ज्ञानकोष में स्वागत है
           </h2>
           <p className="text-muted-foreground mb-6">
-            Welcome to Gyaankosh - Your AI-powered document knowledge base
+            Welcome to Gyaankosh - Your AI-powered assistant
           </p>
           <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 bg-primary/10 rounded-lg p-3 border border-primary/20">
+              <Bot className="w-5 h-5 text-primary" />
+              <span className="text-foreground">
+                Ask me anything - just type and send!
+              </span>
+            </div>
             <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
               <FileText className="w-5 h-5 text-primary" />
-              <span>Upload documents, images, or videos to build your knowledge base</span>
+              <span>Upload documents to build your knowledge base</span>
             </div>
-            {hasDocuments ? (
-              <div className="flex items-center gap-3 bg-primary/10 rounded-lg p-3 border border-primary/20">
-                <Bot className="w-5 h-5 text-primary" />
-                <span className="text-foreground">
-                  Just type to search across all your documents!
-                </span>
-              </div>
-            ) : (
+            {hasDocuments && (
               <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
                 <span className="font-mono text-primary">#</span>
                 <span>Type # to reference a specific document</span>
