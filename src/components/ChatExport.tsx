@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { ChatMessage } from '@/hooks/useChat';
 import { jsPDF } from 'jspdf';
+import { getChatShareUrl } from '@/lib/shareUrl';
 
 interface ChatExportProps {
   messages: ChatMessage[];
@@ -172,7 +173,7 @@ export function ChatExport({ messages, sessionId, sessionTitle }: ChatExportProp
 
       if (error) throw error;
 
-      const link = `${window.location.origin}/shared/chat/${data.share_token}`;
+      const link = getChatShareUrl(data.share_token);
       setShareLink(link);
       setIsShareDialogOpen(true);
     } catch (error) {

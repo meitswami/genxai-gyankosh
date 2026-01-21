@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Document } from '@/hooks/useDocuments';
+import { getDocumentShareUrl, getShareBaseUrl } from '@/lib/shareUrl';
 
 interface DocumentShareProps {
   document: Document;
@@ -42,7 +43,7 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
         .single();
 
       if (existing) {
-        const link = `${window.location.origin}/shared/doc/${existing.share_token}`;
+        const link = getDocumentShareUrl(existing.share_token);
         setShareLink(link);
         return;
       }
@@ -59,7 +60,7 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
 
       if (error) throw error;
 
-      const link = `${window.location.origin}/shared/doc/${data.share_token}`;
+      const link = getDocumentShareUrl(data.share_token);
       setShareLink(link);
     } catch (error) {
       console.error('Error creating share link:', error);
@@ -111,7 +112,7 @@ export function DocumentShare({ document, onClose }: DocumentShareProps) {
       const emailBody = encodeURIComponent(
         `I'm sharing a document with you from Gyankosh:\n\n` +
         `Document: ${document.alias}\n` +
-        `Link: ${shareLink || window.location.origin}\n\n` +
+        `Link: ${shareLink || getShareBaseUrl()}\n\n` +
         `Click the link to view the document.`
       );
       

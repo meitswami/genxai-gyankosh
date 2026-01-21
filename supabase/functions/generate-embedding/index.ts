@@ -203,13 +203,58 @@ Tags should be:
     if (action === "search" && query) {
       const userId = claimsData.claims.sub;
 
-      // Use text-based search with tags and content
-      const { data: results, error: searchError } = await supabaseClient
-        .from("documents")
-        .select("id, name, alias, content_text, tags, category")
-        .eq("user_id", userId)
-        .or(`content_text.ilike.%${query}%,alias.ilike.%${query}%,name.ilike.%${query}%,tags.cs.{${query.toLowerCase()}}`)
-        .limit(10);
+      // Try PostgreSQL full-text search first using the new FTS function
+      let results: any[] = [];
+      let searchError = null;
+
+      try {
+        const { data: ftsResults, error: ftsError } = await supabaseClient
+          .rpc("search_documents_fts", {
+            search_query: query,
+            filter_user_id: userId
+          });
+
+        if (!ftsError && ftsResults && ftsResults.length > 0) {
+          results = ftsResults;
+          console.log(`FTS found ${results.length} documents`);
+        } else {
+          // Fallback to ILIKE search if FTS returns no results
+          const { data: fallbackResults, error: fallbackError } = await supabaseClient
+            .from("documents")
+            .select("id, name, alias, content_text, tags, category, summary")
+            .eq("user_id", userId)
+            .or(`content_text.ilike.%${query}%,alias.ilike.%${query}%,name.ilike.%${query}%`)
+            .limit(10);
+
+          if (fallbackError) {
+            searchError = fallbackError;
+          } else {
+            results = (fallbackResults || []).map(doc => ({
+              ...doc,
+              rank: 0.5
+            }));
+            console.log(`Fallback search found ${results.length} documents`);
+          }
+        }
+      } catch (e) {
+        console.error("FTS error, falling back:", e);
+        // Fallback search
+        const { data: fallbackResults, error: fallbackError } = await supabaseClient
+          .from("documents")
+          .select("id, name, alias, content_text, tags, category, summary")
+          .eq("user_id", userId)
+          .or(`content_text.ilike.%${query}%,alias.ilike.%${query}%,name.ilike.%${query}%`)
+          .limit(10);
+
+        if (fallbackError) {
+          searchError = fallbackError;
+        } else {
+          results = (fallbackResults || []).map(doc => ({
+            ...doc,
+            rank: 0.5
+          }));
+        }
+      }
 
       if (searchError) {
         console.error("Search error:", searchError);
@@ -217,17 +262,17 @@ Tags should be:
       }
 
       // Format results to match expected structure
-      const formattedResults = (results || []).map(doc => ({
+      const formattedResults = results.map(doc => ({
         id: doc.id,
         name: doc.name,
         alias: doc.alias,
         content_text: doc.content_text?.slice(0, 500),
         tags: doc.tags,
         category: doc.category,
-        similarity: 1
+        similarity: doc.rank || 1
       }));
 
-      console.log(`Found ${formattedResults.length} matching documents for query`);
+      console.log(`Returning ${formattedResults.length} search results`);
 
       return new Response(
         JSON.stringify({ success: true, results: formattedResults }),
