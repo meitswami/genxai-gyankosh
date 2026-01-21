@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Eye, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
@@ -13,6 +13,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentPreview } from '@/components/DocumentPreview';
 import { UploadProgress, type UploadStage } from '@/components/UploadProgress';
 import { DocumentComparison } from '@/components/DocumentComparison';
+import { ChatExport } from '@/components/ChatExport';
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -43,6 +45,11 @@ const Index = () => {
   const [uploadFileName, setUploadFileName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  
+  // Refs for keyboard shortcuts
+  const speechButtonRef = useRef<HTMLButtonElement>(null);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
 
   // Load messages when session changes
   useEffect(() => {
@@ -487,6 +494,13 @@ const Index = () => {
               )}
             </div>
             <div className="flex items-center gap-2 ml-4">
+              {messages.length > 0 && (
+                <ChatExport 
+                  messages={messages} 
+                  sessionId={currentSessionId}
+                  sessionTitle={sessions.find(s => s.id === currentSessionId)?.title}
+                />
+              )}
               {selectedDocument && (
                 <Button
                   variant="outline"
@@ -498,6 +512,14 @@ const Index = () => {
                   <span className="hidden sm:inline">{showPreview ? 'Hide' : 'Preview'}</span>
                 </Button>
               )}
+              <KeyboardShortcuts
+                onNewChat={handleNewChat}
+                onToggleSearch={() => setSearchFocused(prev => !prev)}
+                onToggleVoice={() => speechButtonRef.current?.click()}
+                onTogglePreview={() => selectedDocument && setShowPreview(prev => !prev)}
+                onExport={() => exportButtonRef.current?.click()}
+                onToggleKnowledgeBase={() => {}}
+              />
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -526,6 +548,9 @@ const Index = () => {
           onGenerateFaq={handleGenerateFaq}
           isLoading={isLoading}
           isUploading={isUploading}
+          speechButtonRef={speechButtonRef}
+          focusSearch={searchFocused}
+          onSearchFocusHandled={() => setSearchFocused(false)}
         />
       </main>
 

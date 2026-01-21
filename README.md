@@ -6,25 +6,36 @@
 
 ### 📚 Document Management
 - **Multi-Format Upload**: Support for PDF, DOCX, DOC, TXT, images (JPG, PNG, WebP), and videos (MP4, WebM, MOV)
-- **🔍 Advanced OCR**: Extract text from scanned PDFs, images, and videos with multilingual support (Hindi, English, regional languages)
-- **🏷️ AI-Generated Tags & Categories**: Documents are automatically categorized and tagged for better organization
-- **📊 Document Comparison**: Compare two documents side-by-side with AI-powered analysis of similarities and differences
+- **🔍 Advanced OCR**: Extract text from scanned PDFs, images, and videos with multilingual support
+- **🏷️ AI-Generated Tags & Categories**: Documents are automatically categorized and tagged
+- **📊 Document Comparison**: Compare two documents side-by-side with AI-powered analysis
+- **🔗 Document Sharing**: Share documents via public links or email invitations
 - **🔎 Smart Search**: Search documents by name, content, tags, or categories
 
 ### 💬 AI Chat & Search
-- **🌐 Global Knowledge Search**: Ask questions across your entire knowledge base without selecting specific documents
+- **🌐 Global Knowledge Search**: Ask questions across your entire knowledge base
 - **🎯 Document-Specific Chat**: Use `#` to reference and chat with specific documents
-- **⚡ Vector Embeddings**: Semantic search using AI embeddings for faster and more accurate results
-- **🎤 Voice Input**: Speech-to-text support for Hindi and English voice queries
-- **📝 FAQ Generation**: Automatically generate FAQs from documents with collapsible accordions
-- **📋 Export Options**: Copy FAQs to clipboard or download as text files
+- **⚡ Vector Embeddings**: Semantic search using AI embeddings for faster results
+- **🎤 Voice Input**: Speech-to-text support for Hindi and English
+- **📝 FAQ Generation**: Automatically generate FAQs from documents
+- **📤 Chat Export**: Download chats as PDF/Markdown or share via public links
+
+### ⌨️ Keyboard Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | New Chat |
+| `Ctrl+K` | Focus Search |
+| `Ctrl+M` | Voice Input |
+| `Ctrl+P` | Preview Document |
+| `Ctrl+E` | Export Chat |
+| `Ctrl+B` | Toggle Knowledge Base |
+| `Ctrl+/` | Show Shortcuts |
 
 ### 🔧 User Experience
 - **💾 Chat History**: Auto-save conversations with smart naming
 - **🔐 Secure Authentication**: User authentication with row-level security
 - **🌙 Dark Mode**: Toggle between light and dark themes
 - **📱 Responsive Design**: Works on desktop and mobile devices
-- **⏱️ Upload Progress**: Real-time progress tracking during document processing
 
 ## 🛠️ Tech Stack
 
