@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { Document } from '@/hooks/useDocuments';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { SpeechButton } from '@/components/SpeechButton';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatInputProps {
   documents: Document[];
@@ -42,6 +45,28 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  // Speech-to-text hook
+  const {
+    isListening,
+    interimTranscript,
+    isSupported: speechSupported,
+    toggleListening,
+  } = useSpeechToText({
+    language: 'hi-IN', // Supports Hindi and English
+    onResult: (transcript) => {
+      setMessage(prev => prev + transcript + ' ');
+      textareaRef.current?.focus();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Voice Input Error',
+        description: error,
+        variant: 'destructive',
+      });
+    },
+  });
 
   const filteredDocuments = documents.filter(doc =>
     doc.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -271,7 +296,22 @@ export function ChatInput({
               className="min-h-[44px] max-h-32 resize-none pr-12"
               rows={1}
             />
+            {/* Interim transcript indicator */}
+            {isListening && interimTranscript && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground truncate">
+                🎤 {interimTranscript}
+              </div>
+            )}
           </div>
+
+          {/* Speech Button */}
+          <SpeechButton
+            isListening={isListening}
+            isSupported={speechSupported}
+            interimTranscript={interimTranscript}
+            onClick={toggleListening}
+            disabled={isLoading}
+          />
 
           {/* Send Button */}
           <Button
@@ -292,7 +332,7 @@ export function ChatInput({
         <p className="text-xs text-muted-foreground mt-2 text-center">
           {documents.length > 0 && !selectedDocument 
             ? '🔍 Global search mode: Ask anything across all documents • Use # for specific document'
-            : 'Drag & drop or click 📎 to upload • PDF, DOCX, Images, Videos • Hindi, English & Hinglish'
+            : '🎤 Voice input • Drag & drop or click 📎 to upload • PDF, DOCX, Images, Videos'
           }
         </p>
       </div>

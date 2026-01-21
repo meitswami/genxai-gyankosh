@@ -17,11 +17,13 @@ import { supabase } from '@/integrations/supabase/client';
 
 const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`;
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
+const EMBEDDING_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
+const SEMANTIC_SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
 
 const Index = () => {
   const { isLoggedIn, loading: authLoading, logout, user } = useAuth();
   const { toast } = useToast();
-  const { documents, loading: docsLoading, uploadDocument, deleteDocument } = useDocuments();
+  const { documents, loading: docsLoading, uploadDocument, deleteDocument, refetch } = useDocuments();
   const { messages, isLoading, sendMessage, clearMessages, setMessages } = useChat();
   const {
     sessions,
@@ -212,6 +214,36 @@ const Index = () => {
         setSelectedDocument(savedDoc);
         const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
         
+        // Generate embeddings and tags in background
+        (async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (token) {
+              const embedResponse = await fetch(EMBEDDING_URL, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  action: 'embed_document',
+                  documentId: savedDoc.id,
+                }),
+              });
+              
+              if (embedResponse.ok) {
+                const embedResult = await embedResponse.json();
+                console.log('Document embedded with tags:', embedResult.tags);
+                // Refetch to get updated tags
+                await refetch();
+              }
+            }
+          } catch (err) {
+            console.error('Background embedding failed:', err);
+          }
+        })();
+        
         // Brief delay to show complete state
         setTimeout(() => {
           setIsUploading(false);
@@ -264,25 +296,65 @@ const Index = () => {
       document_id: selectedDocument?.id || null,
     });
 
-    // For global search, pass all documents' content
+    // For global search, use semantic search for faster results
     let response: string | null;
     if (isGlobalSearch && documents.length > 0) {
-      // Combine document contents for global search (limit to prevent token overflow)
-      const combinedDocs = documents
-        .filter(doc => doc.content_text)
-        .map(doc => `--- Document: ${doc.alias} ---\n${doc.content_text?.slice(0, 3000) || ''}`)
-        .join('\n\n');
+      // Try semantic search first for faster results
+      let relevantDocs = '';
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (token) {
+          const searchResponse = await fetch(SEMANTIC_SEARCH_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              action: 'search',
+              query: message,
+            }),
+          });
+          
+          if (searchResponse.ok) {
+            const { results } = await searchResponse.json();
+            if (results && results.length > 0) {
+              // Use semantically similar documents
+              relevantDocs = results
+                .map((doc: { alias: string; content_text: string; similarity: number }) => 
+                  `--- Document: ${doc.alias} (relevance: ${(doc.similarity * 100).toFixed(0)}%) ---\n${doc.content_text?.slice(0, 4000) || ''}`
+                )
+                .join('\n\n');
+              console.log(`Semantic search found ${results.length} relevant documents`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Semantic search failed, falling back to full search:', err);
+      }
+      
+      // Fallback to combining all docs if semantic search didn't work
+      if (!relevantDocs) {
+        relevantDocs = documents
+          .filter(doc => doc.content_text)
+          .map(doc => `--- Document: ${doc.alias} ---\n${doc.content_text?.slice(0, 3000) || ''}`)
+          .join('\n\n');
+      }
       
       response = await sendMessage(message, {
         id: 'global',
         name: 'All Documents',
         alias: 'Knowledge Base',
-        content_text: combinedDocs,
+        content_text: relevantDocs,
         file_path: '',
         file_type: '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         user_id: null,
+        tags: null,
+        category: null,
       } as Document);
     } else if (selectedDocument) {
       response = await sendMessage(message, selectedDocument);

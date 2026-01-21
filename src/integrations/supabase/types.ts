@@ -83,40 +83,49 @@ export type Database = {
       documents: {
         Row: {
           alias: string
+          category: string | null
           content_text: string | null
           created_at: string
+          embedding: string | null
           file_path: string
           file_size: number | null
           file_type: string
           id: string
           name: string
           summary: string | null
+          tags: string[] | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           alias: string
+          category?: string | null
           content_text?: string | null
           created_at?: string
+          embedding?: string | null
           file_path: string
           file_size?: number | null
           file_type: string
           id?: string
           name: string
           summary?: string | null
+          tags?: string[] | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           alias?: string
+          category?: string | null
           content_text?: string | null
           created_at?: string
+          embedding?: string | null
           file_path?: string
           file_size?: number | null
           file_type?: string
           id?: string
           name?: string
           summary?: string | null
+          tags?: string[] | null
           updated_at?: string
           user_id?: string | null
         }
@@ -127,7 +136,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_documents: {
+        Args: {
+          filter_user_id?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          alias: string
+          category: string
+          content_text: string
+          id: string
+          name: string
+          similarity: number
+          tags: string[]
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
