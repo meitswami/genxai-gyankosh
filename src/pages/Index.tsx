@@ -574,8 +574,6 @@ const Index = () => {
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
               </Button>
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
             </div>
           </div>
         </header>
@@ -654,7 +652,5 @@ const Index = () => {
     </div>
   );
 };
-
-export default Index;
 
 export default Index;
