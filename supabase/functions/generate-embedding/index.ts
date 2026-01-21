@@ -43,33 +43,54 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // Generate embedding using Lovable AI gateway
-    async function generateEmbedding(inputText: string): Promise<number[]> {
-      console.log("Generating embedding for text length:", inputText.length);
+    // Generate searchable keywords using AI
+    async function generateSearchKeywords(inputText: string): Promise<string[]> {
+      console.log("Generating search keywords for text length:", inputText.length);
       
-      // Truncate to ~8000 chars to stay within token limits
-      const truncatedText = inputText.slice(0, 8000);
+      const truncatedText = inputText.slice(0, 4000);
       
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "text-embedding-3-small",
-          input: truncatedText,
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: `Extract 10-20 important keywords and phrases from this document for search indexing.
+Return ONLY a JSON array of strings, no other text. Example: ["keyword1", "keyword2", "phrase one"]
+Include: key terms, names, dates, concepts, topics, technical terms.
+Keywords should be in the same language as the document.`
+            },
+            {
+              role: "user",
+              content: truncatedText
+            }
+          ],
         }),
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        console.error("Embedding API error:", error);
-        throw new Error(`Embedding failed: ${response.status}`);
+        console.error("Keyword extraction failed:", await response.text());
+        return [];
       }
 
       const result = await response.json();
-      return result.data[0].embedding;
+      const aiResponse = result.choices?.[0]?.message?.content || "[]";
+      
+      try {
+        const jsonMatch = aiResponse.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.error("Failed to parse keywords:", e);
+      }
+      
+      return [];
     }
 
     // Generate tags and category using AI
@@ -144,18 +165,20 @@ Tags should be:
         throw new Error("Document not found or empty");
       }
 
-      // Generate embedding and tags in parallel
-      const [embedding, classification] = await Promise.all([
-        generateEmbedding(doc.content_text),
+      // Generate keywords and classification in parallel
+      const [keywords, classification] = await Promise.all([
+        generateSearchKeywords(doc.content_text),
         generateTagsAndCategory(doc.content_text)
       ]);
 
-      // Update document with embedding, tags, and category
+      // Combine tags with extracted keywords (deduplicated)
+      const allTags = [...new Set([...classification.tags, ...keywords.slice(0, 10)])];
+
+      // Update document with tags and category (no embedding since not supported)
       const { error: updateError } = await supabaseClient
         .from("documents")
         .update({
-          embedding: embedding,
-          tags: classification.tags,
+          tags: allTags,
           category: classification.category
         })
         .eq("id", documentId);
@@ -165,12 +188,12 @@ Tags should be:
         throw new Error("Failed to update document");
       }
 
-      console.log(`Document ${documentId} embedded with ${classification.tags.length} tags`);
+      console.log(`Document ${documentId} classified with ${allTags.length} tags`);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          tags: classification.tags,
+          tags: allTags,
           category: classification.category
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -178,36 +201,36 @@ Tags should be:
     }
 
     if (action === "search" && query) {
-      // Generate embedding for search query
-      const queryEmbedding = await generateEmbedding(query);
       const userId = claimsData.claims.sub;
 
-      // Search using vector similarity
+      // Use text-based search with tags and content
       const { data: results, error: searchError } = await supabaseClient
-        .rpc("match_documents", {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.5,
-          match_count: 5,
-          filter_user_id: userId
-        });
+        .from("documents")
+        .select("id, name, alias, content_text, tags, category")
+        .eq("user_id", userId)
+        .or(`content_text.ilike.%${query}%,alias.ilike.%${query}%,name.ilike.%${query}%,tags.cs.{${query.toLowerCase()}}`)
+        .limit(10);
 
       if (searchError) {
         console.error("Search error:", searchError);
         throw new Error("Search failed");
       }
 
-      console.log(`Found ${results?.length || 0} matching documents for query`);
+      // Format results to match expected structure
+      const formattedResults = (results || []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        alias: doc.alias,
+        content_text: doc.content_text?.slice(0, 500),
+        tags: doc.tags,
+        category: doc.category,
+        similarity: 1
+      }));
+
+      console.log(`Found ${formattedResults.length} matching documents for query`);
 
       return new Response(
-        JSON.stringify({ success: true, results: results || [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (action === "embed_text" && text) {
-      const embedding = await generateEmbedding(text);
-      return new Response(
-        JSON.stringify({ success: true, embedding }),
+        JSON.stringify({ success: true, results: formattedResults }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
