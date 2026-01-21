@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Eye, LogOut, FileSpreadsheet, Bell, Upload } from 'lucide-react';
+import { Eye, LogOut, FileSpreadsheet, Bell, Upload, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
@@ -20,6 +20,7 @@ import { ChatExport } from '@/components/ChatExport';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { ExcelSearchPanel } from '@/components/ExcelSearchPanel';
 import { ChatWidget } from '@/components/ChatWidget';
+import { UserSettingsModal } from '@/components/UserSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,7 +55,7 @@ const Index = () => {
   const [showExcelSearch, setShowExcelSearch] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showBatchProgress, setShowBatchProgress] = useState(false);
-  
+  const [showSettings, setShowSettings] = useState(false);
   // Batch upload hook
   const { uploads, isUploading: isBatchUploading, uploadFiles, clearCompleted, cancelUpload } = useBatchUpload({
     maxConcurrent: 3,
@@ -553,6 +554,15 @@ const Index = () => {
                   {notifications.length}
                 </Badge>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSettings(true)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -562,6 +572,8 @@ const Index = () => {
                 title={user?.email || 'Logout'}
               >
                 <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
                 <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
@@ -630,8 +642,19 @@ const Index = () => {
 
       {/* Chat Widget for User-to-User messaging */}
       <ChatWidget documents={documents} />
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        userId={user?.id || ''}
+        userEmail={user?.email}
+        userCreatedAt={user?.created_at}
+      />
     </div>
   );
 };
+
+export default Index;
 
 export default Index;
