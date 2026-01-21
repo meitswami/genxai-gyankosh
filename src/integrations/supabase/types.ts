@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          encrypted_group_key: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          encrypted_group_key: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          encrypted_group_key?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -134,6 +167,42 @@ export type Database = {
         }
         Relationships: []
       }
+      document_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          subcategory: string | null
+          template_content: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          subcategory?: string | null
+          template_content: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          subcategory?: string | null
+          template_content?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           alias: string
@@ -214,6 +283,85 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      group_members: {
+        Row: {
+          encrypted_group_key: string
+          group_id: string
+          id: string
+          joined_at: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          encrypted_group_key: string
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          encrypted_group_key?: string
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          encrypted_content: string
+          file_name: string | null
+          file_url: string | null
+          group_id: string
+          id: string
+          iv: string
+          sender_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          encrypted_content: string
+          file_name?: string | null
+          file_url?: string | null
+          group_id: string
+          id?: string
+          iv: string
+          sender_id: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          encrypted_content?: string
+          file_name?: string | null
+          file_url?: string | null
+          group_id?: string
+          id?: string
+          iv?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_reactions: {
         Row: {
@@ -382,6 +530,78 @@ export type Database = {
           id?: string
           recipient_id?: string
           started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          company: string | null
+          created_at: string
+          designation: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          logo_url: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          designation?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          designation?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_signatures: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          type?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

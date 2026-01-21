@@ -1,9 +1,11 @@
 import { useRef, useEffect, useState } from 'react';
 import { Bot, User, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { FAQRenderer, isFAQContent } from '@/components/FAQRenderer';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { AISuggestions, parseAISuggestions } from '@/components/AISuggestions';
+import { MessageDocxExport } from '@/components/MessageDocxExport';
 import type { ChatMessage } from '@/hooks/useChat';
 
 interface ChatAreaProps {
@@ -83,6 +85,7 @@ export function ChatArea({ messages, isLoading, hasDocuments = false, onSendMess
   }
 
   return (
+    <TooltipProvider>
     <ScrollArea className="flex-1" ref={scrollRef}>
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         {messages.map((message, index) => {
@@ -117,7 +120,10 @@ export function ChatArea({ messages, isLoading, hasDocuments = false, onSendMess
                   <FAQRenderer content={message.content} documentName={message.documentName} />
                 ) : message.role === 'assistant' ? (
                   <>
-                    <MarkdownRenderer content={cleanContent} />
+                    <div className="flex items-start justify-between gap-2">
+                      <MarkdownRenderer content={cleanContent} className="flex-1" />
+                      <MessageDocxExport content={cleanContent} documentName={message.documentName} />
+                    </div>
                     {isLastAssistant && !isLoading && suggestions.length > 0 && onSendMessage && (
                       <AISuggestions 
                         suggestions={suggestions} 
@@ -157,5 +163,6 @@ export function ChatArea({ messages, isLoading, hasDocuments = false, onSendMess
         )}
       </div>
     </ScrollArea>
+    </TooltipProvider>
   );
 }
