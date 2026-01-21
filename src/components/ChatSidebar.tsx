@@ -76,47 +76,48 @@ export function ChatSidebar({
   }, [sessions, chatSearchQuery]);
 
   const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: 'Logout Confirmation',
-      text: 'Are you sure you want to logout from ज्ञानकोष?',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: 'hsl(var(--primary))',
-      cancelButtonColor: 'hsl(var(--muted))',
-      confirmButtonText: 'Yes, Logout',
-      cancelButtonText: 'Cancel',
-      background: 'hsl(var(--background))',
-      color: 'hsl(var(--foreground))',
-      customClass: {
-        popup: 'rounded-xl shadow-lg border border-border',
-        title: 'text-lg font-semibold',
-        confirmButton: 'rounded-md px-4 py-2',
-        cancelButton: 'rounded-md px-4 py-2',
-      },
-    });
+    try {
+      const result = await Swal.fire({
+        title: 'Logout Confirmation',
+        text: 'Are you sure you want to logout from ज्ञानकोष?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Logout',
+        cancelButtonText: 'Cancel',
+        background: '#ffffff',
+        color: '#1f2937',
+      });
 
-    if (result.isConfirmed) {
-      // Clear local storage
+      if (result.isConfirmed) {
+        // Clear local storage
+        localStorage.removeItem('gyaankosh_logged_in');
+        localStorage.removeItem('gyaankosh_user');
+        localStorage.removeItem('privateKey');
+        
+        // Sign out from Supabase
+        await supabase.auth.signOut();
+        
+        await Swal.fire({
+          title: 'Logged Out!',
+          text: 'You have been successfully logged out.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false,
+          background: '#ffffff',
+          color: '#1f2937',
+        });
+        
+        navigate('/auth');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: still logout even if SweetAlert fails
       localStorage.removeItem('gyaankosh_logged_in');
       localStorage.removeItem('gyaankosh_user');
       localStorage.removeItem('privateKey');
-      
-      // Sign out from Supabase
       await supabase.auth.signOut();
-      
-      Swal.fire({
-        title: 'Logged Out!',
-        text: 'You have been successfully logged out.',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false,
-        background: 'hsl(var(--background))',
-        color: 'hsl(var(--foreground))',
-        customClass: {
-          popup: 'rounded-xl shadow-lg border border-border',
-        },
-      });
-      
       navigate('/auth');
     }
   };
