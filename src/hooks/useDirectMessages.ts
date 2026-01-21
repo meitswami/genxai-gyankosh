@@ -11,9 +11,14 @@ export interface DirectMessage {
   content: string; // Decrypted content
   encrypted_content: string;
   iv: string;
-  content_type: 'text' | 'file' | 'document';
+  content_type: 'text' | 'file' | 'document' | 'audio' | 'video';
   file_url: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
   read_at: string | null;
+  delivered_at: string | null;
+  status: 'sent' | 'delivered' | 'read';
   created_at: string;
 }
 
@@ -25,7 +30,12 @@ interface RawMessage {
   iv: string;
   content_type: string;
   file_url: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
   read_at: string | null;
+  delivered_at: string | null;
+  status: string;
   created_at: string;
 }
 
@@ -55,14 +65,16 @@ export function useDirectMessages(currentUserId: string | null, friendProfile: U
       return {
         ...msg,
         content: decrypted,
-        content_type: msg.content_type as 'text' | 'file' | 'document',
+        content_type: msg.content_type as DirectMessage['content_type'],
+        status: (msg.status || 'sent') as DirectMessage['status'],
       };
     } catch (error) {
       console.error('Decryption error:', error);
       return {
         ...msg,
         content: '[Unable to decrypt message]',
-        content_type: msg.content_type as 'text' | 'file' | 'document',
+        content_type: msg.content_type as DirectMessage['content_type'],
+        status: (msg.status || 'sent') as DirectMessage['status'],
       };
     }
   }, []);

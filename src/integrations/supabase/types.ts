@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           content_type: string | null
           created_at: string
+          delivered_at: string | null
           encrypted_content: string
           encrypted_file_key: string | null
           file_name: string | null
@@ -95,10 +96,12 @@ export type Database = {
           read_at: string | null
           recipient_id: string
           sender_id: string
+          status: string | null
         }
         Insert: {
           content_type?: string | null
           created_at?: string
+          delivered_at?: string | null
           encrypted_content: string
           encrypted_file_key?: string | null
           file_name?: string | null
@@ -110,10 +113,12 @@ export type Database = {
           read_at?: string | null
           recipient_id: string
           sender_id: string
+          status?: string | null
         }
         Update: {
           content_type?: string | null
           created_at?: string
+          delivered_at?: string | null
           encrypted_content?: string
           encrypted_file_key?: string | null
           file_name?: string | null
@@ -125,6 +130,7 @@ export type Database = {
           read_at?: string | null
           recipient_id?: string
           sender_id?: string
+          status?: string | null
         }
         Relationships: []
       }
@@ -208,6 +214,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "direct_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -326,6 +364,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      typing_indicators: {
+        Row: {
+          id: string
+          recipient_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          recipient_id: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          recipient_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -1,24 +1,45 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Bot, User, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FAQRenderer, isFAQContent } from '@/components/FAQRenderer';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { AISuggestions, parseAISuggestions } from '@/components/AISuggestions';
 import type { ChatMessage } from '@/hooks/useChat';
 
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
   hasDocuments?: boolean;
+  onSendMessage?: (message: string) => void;
 }
 
-export function ChatArea({ messages, isLoading, hasDocuments = false }: ChatAreaProps) {
+export function ChatArea({ messages, isLoading, hasDocuments = false, onSendMessage }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Parse suggestions from the last assistant message
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && !isLoading) {
+        const { suggestions: parsed } = parseAISuggestions(lastMessage.content);
+        setSuggestions(parsed);
+      }
+    }
+  }, [messages, isLoading]);
+
+  const handleSuggestionClick = (suggestion: string) => {
+    if (onSendMessage) {
+      onSendMessage(suggestion);
+      setSuggestions([]);
+    }
+  };
 
   if (messages.length === 0 && !isLoading) {
     return (
@@ -64,46 +85,61 @@ export function ChatArea({ messages, isLoading, hasDocuments = false }: ChatArea
   return (
     <ScrollArea className="flex-1" ref={scrollRef}>
       <div className="max-w-3xl mx-auto p-6 space-y-6">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex gap-3 animate-fade-in ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {message.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
-            )}
-            
-            <div className={`max-w-[85%] ${
-              message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
-            }`}>
-              {message.documentName && (
-                <div className="document-chip mb-2">
-                  <FileText className="w-3 h-3" />
-                  {message.documentName}
+        {messages.map((message, index) => {
+          const isLastAssistant = message.role === 'assistant' && index === messages.length - 1;
+          const { cleanContent } = message.role === 'assistant' 
+            ? parseAISuggestions(message.content)
+            : { cleanContent: message.content };
+
+          return (
+            <div
+              key={message.id}
+              className={`flex gap-3 animate-fade-in ${
+                message.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              {message.role === 'assistant' && (
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
-              {message.role === 'assistant' && isFAQContent(message.content) ? (
-                <FAQRenderer content={message.content} documentName={message.documentName} />
-              ) : message.role === 'assistant' ? (
-                <MarkdownRenderer content={message.content} />
-              ) : (
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {message.content}
+              
+              <div className={`max-w-[85%] ${
+                message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
+              }`}>
+                {message.documentName && (
+                  <div className="document-chip mb-2">
+                    <FileText className="w-3 h-3" />
+                    {message.documentName}
+                  </div>
+                )}
+                {message.role === 'assistant' && isFAQContent(message.content) ? (
+                  <FAQRenderer content={message.content} documentName={message.documentName} />
+                ) : message.role === 'assistant' ? (
+                  <>
+                    <MarkdownRenderer content={cleanContent} />
+                    {isLastAssistant && !isLoading && suggestions.length > 0 && onSendMessage && (
+                      <AISuggestions 
+                        suggestions={suggestions} 
+                        onSelectSuggestion={handleSuggestionClick} 
+                      />
+                    )}
+                  </>
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {message.content}
+                  </div>
+                )}
+              </div>
+
+              {message.role === 'user' && (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-primary-foreground" />
                 </div>
               )}
             </div>
-
-            {message.role === 'user' && (
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-primary-foreground" />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex gap-3 animate-fade-in">
