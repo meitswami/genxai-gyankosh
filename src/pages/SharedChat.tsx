@@ -63,6 +63,12 @@ export default function SharedChat() {
           messages_snapshot: data.messages_snapshot as unknown as SharedMessage[],
           created_at: data.created_at,
         });
+
+        // Increment view count for notifications
+        await supabase
+          .from('shared_chats')
+          .update({ view_count: ((data as any).view_count || 0) + 1 })
+          .eq('share_token', token);
       } catch (err) {
         console.error('Error fetching shared chat:', err);
         setError('Failed to load shared chat');

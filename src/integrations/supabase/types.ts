@@ -144,6 +144,7 @@ export type Database = {
           share_token: string
           title: string
           user_id: string
+          view_count: number
         }
         Insert: {
           created_at?: string
@@ -154,6 +155,7 @@ export type Database = {
           share_token?: string
           title?: string
           user_id: string
+          view_count?: number
         }
         Update: {
           created_at?: string
@@ -164,6 +166,7 @@ export type Database = {
           share_token?: string
           title?: string
           user_id?: string
+          view_count?: number
         }
         Relationships: [
           {

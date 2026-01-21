@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Eye, LogOut } from 'lucide-react';
+import { Eye, LogOut, FileSpreadsheet, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
 import { useChat } from '@/hooks/useChat';
 import { useChatSessions } from '@/hooks/useChatSessions';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewNotifications } from '@/hooks/useViewNotifications';
 import { extractTextFromFile } from '@/lib/documentParser';
 import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatArea } from '@/components/ChatArea';
@@ -15,7 +16,9 @@ import { UploadProgress, type UploadStage } from '@/components/UploadProgress';
 import { DocumentComparison } from '@/components/DocumentComparison';
 import { ChatExport } from '@/components/ChatExport';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { ExcelSearchPanel } from '@/components/ExcelSearchPanel';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
 const PARSE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-document`;
@@ -45,7 +48,11 @@ const Index = () => {
   const [uploadFileName, setUploadFileName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [showExcelSearch, setShowExcelSearch] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  
+  // Realtime view notifications
+  const { notifications } = useViewNotifications(user?.id);
   
   // Refs for keyboard shortcuts
   const speechButtonRef = useRef<HTMLButtonElement>(null);
@@ -520,6 +527,22 @@ const Index = () => {
                 onExport={() => exportButtonRef.current?.click()}
                 onToggleKnowledgeBase={() => {}}
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExcelSearch(true)}
+                className="gap-1.5"
+                title="Excel Search - AI-powered Excel analysis"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span className="hidden sm:inline">Excel</span>
+              </Button>
+              {notifications.length > 0 && (
+                <Badge variant="secondary" className="gap-1">
+                  <Bell className="w-3 h-3" />
+                  {notifications.length}
+                </Badge>
+              )}
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -573,6 +596,11 @@ const Index = () => {
           documents={documents}
           onClose={() => setShowComparison(false)}
         />
+      )}
+
+      {/* Excel Search Panel */}
+      {showExcelSearch && (
+        <ExcelSearchPanel onClose={() => setShowExcelSearch(false)} />
       )}
     </div>
   );
