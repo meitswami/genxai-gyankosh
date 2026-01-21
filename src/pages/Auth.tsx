@@ -131,7 +131,7 @@ export default function Auth() {
               Treasury of Knowledge
             </CardDescription>
             <p className="text-xs text-muted-foreground/70 mt-2">
-              Gyankosh in Hindi or English by GenXAI
+              Your AI-powered document knowledge base
             </p>
           </div>
         </CardHeader>
