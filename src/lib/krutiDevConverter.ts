@@ -172,17 +172,60 @@ function escapeRegex(str: string): string {
 export function isLikelyKrutiDev(text: string): boolean {
   if (!text) return false;
   
-  // Check for Kruti Dev specific patterns
-  const krutiPatterns = /[vVbBmM_`~][ks]?|[dk]h?|[xp]k?|[Fk]|[Hk]|[\.k]|\[k\]|[jy]|['k]|["k]/;
-  const unicodeHindiRange = /[\u0900-\u097F]/;
-  
-  const hasKrutiPatterns = krutiPatterns.test(text);
-  const hasUnicode = unicodeHindiRange.test(text);
-  
   // If has Unicode Hindi characters, it's not Kruti Dev
-  if (hasUnicode) return false;
+  const unicodeHindiRange = /[\u0900-\u097F]/;
+  if (unicodeHindiRange.test(text)) return false;
   
-  return hasKrutiPatterns;
+  // Check if text contains common English words - if yes, it's likely English, not Kruti Dev
+  const commonEnglishWords = /\b(the|is|are|was|were|have|has|had|to|of|and|or|but|in|on|at|for|with|by|from|as|an|a|this|that|these|those|it|they|we|you|he|she|system|decision|judgment|built|simply|replaceable|imreplaceble|imreplaceable)\b/i;
+  if (commonEnglishWords.test(text)) {
+    return false; // Contains English words, not Kruti Dev
+  }
+  
+  // Check for Kruti Dev specific multi-character sequences
+  // These are characteristic patterns that appear in Kruti Dev but not normal English
+  const krutiDevSequences = [
+    /vk[ksS]/,            // आक/आख/आग patterns (आ + consonant)
+    /bZ/,                 // ई (specific pattern)
+    /[vVbBmM_`~][ksS]/,  // Vowel + matra combinations
+    /[dk]h/,              // क/ख with ई matra
+    /[xp]k/,              // ग/घ with आ matra  
+    /Fk/,                 // थ
+    /Hk/,                 // भ
+    /\.k/,                // ण
+    /\[k\]/,              // ख (bracketed)
+    /'k/,                 // श
+    /"k/,                 // ष
+    /D;k/,                // क्या
+    /D;/,                 // क्य
+    /Ø/,                  // क्र
+    /Á[zk]/,              // प्र
+    /J/,                  // श्र
+    /ñ/,                  // ह्र
+    /æ/,                  // द्र
+    /ð/,                  // द्व
+    /Ír/,                 // त्त
+    /ÍV/,                 // ट्ट
+    /í/,                  // द्द
+    /ê/,                  // न्न
+    /ë/,                  // प्प
+    /ì/,                  // म्म
+    /î/,                  // य्य
+    /ï/,                  // ल्ल
+  ];
+  
+  // Count distinct Kruti Dev sequences found
+  let krutiSequenceCount = 0;
+  for (const pattern of krutiDevSequences) {
+    if (pattern.test(text)) {
+      krutiSequenceCount++;
+    }
+  }
+  
+  // Require at least 2 distinct Kruti Dev sequences to be confident
+  // This prevents false positives from English text that happens to contain
+  // individual letters that match single-character patterns
+  return krutiSequenceCount >= 2;
 }
 
 /**

@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DocumentSearch } from '@/components/DocumentSearch';
 import { DocumentShare } from '@/components/DocumentShare';
+import { DocumentViewerModal } from '@/components/DocumentViewerModal';
 import { highlightText, getMatchContext } from '@/lib/highlightText';
 import { supabase } from '@/integrations/supabase/client';
 import Swal from 'sweetalert2';
@@ -51,6 +52,7 @@ export function ChatSidebar({
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [shareDocument, setShareDocument] = useState<Document | null>(null);
+  const [viewDocument, setViewDocument] = useState<Document | null>(null);
   const navigate = useNavigate();
 
   // Filter documents by search query
@@ -191,7 +193,8 @@ export function ChatSidebar({
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
-                    className="group flex items-start gap-2 p-2 rounded-md hover:bg-sidebar-accent text-sm"
+                    className="group flex items-start gap-2 p-2 rounded-md hover:bg-sidebar-accent text-sm cursor-pointer"
+                    onClick={() => setViewDocument(doc)}
                   >
                     <span className="mt-0.5">{getFileIcon(doc.file_type)}</span>
                     <div className="flex-1 min-w-0">
@@ -228,7 +231,10 @@ export function ChatSidebar({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                        onClick={() => setShareDocument(doc)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShareDocument(doc);
+                        }}
                       >
                         <Share2 className="w-3 h-3 text-muted-foreground hover:text-primary" />
                       </Button>
@@ -236,7 +242,10 @@ export function ChatSidebar({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                        onClick={() => onDeleteDocument(doc.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteDocument(doc.id);
+                        }}
                       >
                         <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
                       </Button>
@@ -349,6 +358,13 @@ export function ChatSidebar({
           onClose={() => setShareDocument(null)}
         />
       )}
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        document={viewDocument}
+        isOpen={!!viewDocument}
+        onClose={() => setViewDocument(null)}
+      />
     </aside>
   );
 }

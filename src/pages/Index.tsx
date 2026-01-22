@@ -114,6 +114,8 @@ const Index = () => {
     const loadMessages = async () => {
       // Double-check we're still loading the correct session
       if (loadingSessionRef.current !== currentSessionId) {
+        // Clear loading state if we're no longer loading this session
+        setIsLoadingMessages(false);
         return;
       }
 
@@ -125,13 +127,17 @@ const Index = () => {
 
       // Check again after async operation to prevent race conditions
       if (loadingSessionRef.current !== currentSessionId) {
+        // Clear loading state if we're no longer loading this session
+        setIsLoadingMessages(false);
         return;
       }
 
+      // Always clear loading state synchronously, regardless of result
+      setIsLoadingMessages(false);
+      loadingSessionRef.current = null;
+
       if (error) {
         console.error('Error loading messages:', error);
-        loadingSessionRef.current = null;
-        setIsLoadingMessages(false);
         setMessages([]);
         return;
       }
@@ -145,12 +151,11 @@ const Index = () => {
         createdAt: new Date(msg.created_at),
       })) : [];
 
-      // Use startTransition to mark this as a non-urgent update, reducing flicker
+      // Use startTransition only for messages update to reduce flicker
+      // Loading state is already cleared synchronously above
       startTransition(() => {
         setMessages(newMessages);
-        setIsLoadingMessages(false);
       });
-      loadingSessionRef.current = null;
     };
 
     loadMessages();

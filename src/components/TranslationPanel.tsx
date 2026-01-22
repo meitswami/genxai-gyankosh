@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Languages, Copy, Check, ArrowRightLeft, Loader2, Type, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,36 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
   const [copiedKruti, setCopiedKruti] = useState(false);
   const [activeTab, setActiveTab] = useState<ActionType>('translate');
   const { toast } = useToast();
+  
+  // Track current request to cancel it if needed
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup function to cancel any in-flight requests
+  const cleanupRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (readerRef.current) {
+      readerRef.current.releaseLock().catch(() => {
+        // Ignore errors when releasing lock
+      });
+      readerRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRequest();
+    };
+  }, [cleanupRequest]);
 
   const swapLanguages = () => {
     setSourceLanguage(targetLanguage);
@@ -50,15 +80,23 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
       return;
     }
 
+    // Cancel any existing request before starting a new one
+    cleanupRequest();
+
     setIsLoading(true);
     setOutputText('');
     setKrutiDevOutput('');
 
-    // Create an AbortController for timeout
+    // Create a new AbortController for this request
     const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     const timeoutId = setTimeout(() => {
       abortController.abort();
     }, 60000); // 60 second timeout
+    timeoutRef.current = timeoutId;
+
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -118,7 +156,9 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
         throw new Error('No response body received from server');
       }
 
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
+      readerRef.current = reader;
+      
       const decoder = new TextDecoder();
       let buffer = '';
       let fullResponse = '';
@@ -127,6 +167,11 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
 
       try {
         while (true) {
+          // Check if request was aborted
+          if (abortController.signal.aborted) {
+            throw new Error('Request was cancelled');
+          }
+
           // Check for timeout during streaming (30 seconds of no data)
           if (hasReceivedData && Date.now() - lastDataTime > 30000) {
             throw new Error('Stream timeout: No data received for 30 seconds');
@@ -207,30 +252,47 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
           throw streamError;
         }
       } finally {
-        clearTimeout(timeoutId);
-        reader.releaseLock();
+        // Clean up reader
+        if (reader) {
+          try {
+            reader.releaseLock();
+          } catch (e) {
+            // Reader might already be released or locked
+            console.warn('Failed to release reader lock:', e);
+          }
+          readerRef.current = null;
+        }
       }
     } catch (error) {
       console.error('Processing error:', error);
       
       let errorMessage = 'Processing failed';
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please try again.';
+        if (error.name === 'AbortError' || error.message === 'Request was cancelled') {
+          errorMessage = 'Request was cancelled or timed out. Please try again.';
         } else {
           errorMessage = error.message;
         }
       }
 
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      // Only show error toast if not aborted (user might have cancelled intentionally)
+      if (!abortController.signal.aborted) {
+        toast({
+          title: 'Error',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
     } finally {
+      // Clean up all resources
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
-  }, [inputText, activeTab, sourceLanguage, targetLanguage, toast]);
+  }, [inputText, activeTab, sourceLanguage, targetLanguage, toast, cleanupRequest]);
 
   const copyToClipboard = async (text: string, isKruti: boolean) => {
     try {

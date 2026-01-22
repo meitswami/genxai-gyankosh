@@ -172,15 +172,23 @@ Provide the paraphrased text directly. If the text is in Hindi, keep it in Hindi
       systemPrompt = `You are an expert grammar checker for Hindi, English, and Hinglish text.
 
 CRITICAL REQUIREMENTS:
-- Fix all grammar, spelling, and punctuation errors
-- Maintain the original meaning exactly
-- Keep the same language (Hindi stays Hindi, etc.)
+- Fix ALL grammar, spelling, and punctuation errors
+- Maintain the original meaning exactly - do not change the intent
+- Keep the same language (Hindi stays Hindi, English stays English, etc.)
 - For Hindi, ensure proper Unicode Devanagari spelling and grammar
-- Fix verb agreements, tense consistency, and sentence structure
+- Fix subject-verb agreement errors (e.g., "system have" → "system has")
+- Fix verb tense consistency
+- Fix spelling errors (e.g., "imreplaceble" → "irreplaceable")
+- Fix word form errors (e.g., "simply" used as verb → "simplify")
+- Fix sentence structure and word order
 - Preserve the author's style and tone
 - 100% accuracy required
 
-Output ONLY the corrected text. If there are significant errors, you may add a brief note at the end after "---" explaining the main corrections made.`;
+IMPORTANT:
+- Output ONLY the corrected text
+- Do not add explanations unless there are significant structural changes
+- If the text needs major restructuring, add a brief note after "---" explaining key corrections
+- For English text, ensure proper grammar rules are followed (subject-verb agreement, tense consistency, etc.)`;
       userMessages = [{ role: "user", content: inputText }];
     } else if (detectedAction === "auto_grammar") {
       systemPrompt = `You are an expert grammar checker for Hindi, English, and Hinglish text.
