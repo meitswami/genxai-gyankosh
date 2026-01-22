@@ -55,6 +55,55 @@ serve(async (req) => {
 
     let systemPrompt = "";
     let userMessages = messages || [];
+    let detectedAction = action;
+
+    // Auto-detect translation/paraphrase/grammar requests from natural language
+    const userQuery = messages?.[0]?.content?.toLowerCase() || "";
+    
+    // Translation detection patterns
+    const translatePatterns = [
+      /translate\s+(this|to|into|in)\s+/i,
+      /convert\s+(this|to|into|in)\s+/i,
+      /(into|to|in)\s+(english|hindi|hinglish)/i,
+      /इसे\s+(english|अंग्रेजी|हिंदी|hindi)/i,
+      /इसको\s+(english|अंग्रेजी|हिंदी|hindi)/i,
+      /का\s+(english|अंग्रेजी|हिंदी|hindi|translation)/i,
+      /(english|hindi|hinglish)\s+(में|me|mein)\s+(translate|लिखो|बताओ|convert)/i,
+    ];
+    
+    // Paraphrase detection patterns
+    const paraphrasePatterns = [
+      /paraphrase\s+(this|the|following)/i,
+      /rewrite\s+(this|the|following)/i,
+      /rephrase\s+(this|the|following)/i,
+      /दूसरे\s+शब्दों\s+में/i,
+      /फिर\s+से\s+लिखो/i,
+    ];
+    
+    // Grammar detection patterns  
+    const grammarPatterns = [
+      /check\s+(the\s+)?grammar/i,
+      /grammar\s+check/i,
+      /fix\s+(the\s+)?grammar/i,
+      /correct\s+(this|the|following)/i,
+      /grammar\s+(सही|ठीक|fix)/i,
+      /व्याकरण\s+(सही|ठीक|check)/i,
+    ];
+
+    if (!action && userQuery) {
+      // Check for translation request
+      if (translatePatterns.some(p => p.test(userQuery))) {
+        detectedAction = "auto_translate";
+      }
+      // Check for paraphrase request
+      else if (paraphrasePatterns.some(p => p.test(userQuery))) {
+        detectedAction = "auto_paraphrase";
+      }
+      // Check for grammar request
+      else if (grammarPatterns.some(p => p.test(userQuery))) {
+        detectedAction = "auto_grammar";
+      }
+    }
 
     // Language Tools Actions
     if (action === "translate") {
@@ -74,6 +123,24 @@ TARGET LANGUAGE: ${targetLanguage || 'Hindi'}
 
 Translate the following text accurately. Output ONLY the translated text, no explanations.`;
       userMessages = [{ role: "user", content: inputText }];
+    } else if (detectedAction === "auto_translate") {
+      // Auto-detected translation from chat
+      systemPrompt = `You are an expert multilingual translator specializing in English, Hindi, and Hinglish translations.
+
+CRITICAL REQUIREMENTS:
+- Auto-detect the source language
+- Detect the target language from the user's request (look for "to English", "to Hindi", "in Hindi", "English में", etc.)
+- Translate with 100% accuracy preserving the exact meaning and context
+- Maintain formal/informal tone as in the original
+- For Hindi output, use proper Unicode Devanagari script
+- For Hinglish, mix Hindi and English naturally as spoken in India
+- Preserve formatting and structure
+
+If the user provides text in quotes or after a colon, translate that text.
+If they ask to translate Hindi text to English or vice versa, detect and translate accordingly.
+
+Provide a clear, properly formatted translation. Start with the translation directly.
+If translating to Hindi, also provide the Kruti Dev format note: (For Kruti Dev font users: copy from above and paste).`;
     } else if (action === "paraphrase") {
       systemPrompt = `You are an expert paraphrasing assistant for Hindi, English, and Hinglish text.
 
@@ -89,6 +156,18 @@ CRITICAL REQUIREMENTS:
 
 Output ONLY the paraphrased text, no explanations or comparisons.`;
       userMessages = [{ role: "user", content: inputText }];
+    } else if (detectedAction === "auto_paraphrase") {
+      systemPrompt = `You are an expert paraphrasing assistant for Hindi, English, and Hinglish text.
+
+The user wants you to paraphrase/rewrite some text. 
+- Identify the text to paraphrase from their message
+- Rewrite it completely while preserving the exact meaning
+- Use different vocabulary and sentence structures
+- Maintain the same language as input
+- For Hindi, use proper Unicode Devanagari script
+- Keep the same formality level
+
+Provide the paraphrased text directly. If the text is in Hindi, keep it in Hindi.`;
     } else if (action === "grammar") {
       systemPrompt = `You are an expert grammar checker for Hindi, English, and Hinglish text.
 
@@ -103,6 +182,17 @@ CRITICAL REQUIREMENTS:
 
 Output ONLY the corrected text. If there are significant errors, you may add a brief note at the end after "---" explaining the main corrections made.`;
       userMessages = [{ role: "user", content: inputText }];
+    } else if (detectedAction === "auto_grammar") {
+      systemPrompt = `You are an expert grammar checker for Hindi, English, and Hinglish text.
+
+The user wants you to check and fix grammar in some text.
+- Identify the text to check from their message
+- Fix all grammar, spelling, and punctuation errors
+- Maintain the original meaning exactly
+- Keep the same language (Hindi stays Hindi, etc.)
+- For Hindi, ensure proper Devanagari spelling
+
+Provide the corrected text directly, followed by a brief note about what was corrected.`;
     } else if (action === "summarize") {
       systemPrompt = `You are an expert document analyzer. Analyze the provided document content and return a JSON response.
 
@@ -188,6 +278,9 @@ You can help with a wide range of topics including:
 - Explaining concepts in simple terms
 - Providing advice and suggestions
 - Having thoughtful conversations
+- **Translation between English, Hindi, and Hinglish** - just ask!
+- **Paraphrasing and rewriting text**
+- **Grammar checking and correction**
 
 Instructions:
 - Be helpful, accurate, and engaging
@@ -195,6 +288,7 @@ Instructions:
 - Use proper formatting for professional appearance
 - Be conversational and friendly
 - If you don't know something, be honest about it
+- For Hindi text, always use proper Unicode Devanagari script
 ${formattingInstruction}
 ${suggestionInstruction}
 
@@ -214,6 +308,7 @@ Instructions:
 - If the answer isn't in any document, politely say so
 - Keep answers clear, well-structured, and fast to read
 - Use proper formatting for professional appearance
+- You can also help with translation, paraphrasing, and grammar if asked
 ${formattingInstruction}
 ${suggestionInstruction}`;
       } else {
@@ -230,6 +325,7 @@ Instructions:
 - If the answer is not in the document, politely say so
 - Keep answers clear and concise
 - Use proper formatting for professional appearance
+- You can also help with translation, paraphrasing, and grammar if asked
 ${formattingInstruction}
 ${suggestionInstruction}`;
       }
