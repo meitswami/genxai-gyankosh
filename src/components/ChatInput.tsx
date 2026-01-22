@@ -726,7 +726,7 @@ export function ChatInput({
             ) : (
               <Send className="w-4 h-4" />
             )}
-          </Button>
+        </Button>
         </div>
 
         {/* Hint */}
@@ -737,16 +737,26 @@ export function ChatInput({
             <span className="font-mono text-primary ml-1">!</span> web search •
             <span className="ml-1">🎤 voice • 📎 upload</span>
           </p>
-          {/* Quick access to Translation Panel */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-xs gap-1 text-muted-foreground hover:text-primary px-2"
-            onClick={() => setShowTranslationPanel(true)}
-          >
-            <Languages className="w-3 h-3" />
-            Translate / Paraphrase
-          </Button>
+          {/* Quick access to Translation Panel - Always visible */}
+          <Dialog open={showTranslationPanel} onOpenChange={setShowTranslationPanel}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs gap-1 text-muted-foreground hover:text-primary px-2"
+              >
+                <Languages className="w-3 h-3" />
+                Translate / Paraphrase
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl p-0 overflow-hidden">
+              <DialogTitle className="sr-only">Translation & Language Tools</DialogTitle>
+              <TranslationPanel 
+                initialText={message} 
+                onClose={() => setShowTranslationPanel(false)} 
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
