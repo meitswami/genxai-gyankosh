@@ -24,6 +24,14 @@ export function useDocuments() {
   const { toast } = useToast();
 
   const fetchDocuments = async () => {
+    // Check if user is authenticated before fetching
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      setDocuments([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('documents')
@@ -35,8 +43,8 @@ export function useDocuments() {
     } catch (error) {
       console.error('Error fetching documents:', error);
       // Only show error if user is logged in (otherwise they'll be redirected)
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
         toast({
           title: 'Error',
           description: 'Failed to load documents',
@@ -134,7 +142,41 @@ export function useDocuments() {
   };
 
   useEffect(() => {
-    fetchDocuments();
+    // Wait for auth state to be ready before fetching
+    let mounted = true;
+    
+    const init = async () => {
+      // Wait for auth to initialize
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (mounted) {
+        if (session) {
+          await fetchDocuments();
+        } else {
+          setLoading(false);
+          setDocuments([]);
+        }
+      }
+    };
+
+    // Listen for auth changes and fetch when signed in
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
+        if (event === 'SIGNED_IN' && session) {
+          await fetchDocuments();
+        } else if (event === 'SIGNED_OUT') {
+          setDocuments([]);
+          setLoading(false);
+        }
+      }
+    });
+
+    init();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return {

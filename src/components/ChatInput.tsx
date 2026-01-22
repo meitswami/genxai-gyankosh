@@ -294,15 +294,24 @@ export function ChatInput({
       }
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSend().catch(err => {
+        console.error('Error sending message:', err);
+      });
     }
   };
 
-  const handleSend = () => {
-    if (message.trim() && !isLoading) {
-      onSendMessage(message.trim(), mentions);
+  const handleSend = async () => {
+    const trimmedMessage = message.trim();
+    if (trimmedMessage && !isLoading) {
+      const messageToSend = trimmedMessage;
+      const mentionsToSend = [...mentions];
+      // Clear input immediately for better UX
       setMessage('');
       setMentions([]);
+      // Focus back on textarea after sending
+      textareaRef.current?.focus();
+      // Send the message
+      await onSendMessage(messageToSend, mentionsToSend);
     }
   };
 

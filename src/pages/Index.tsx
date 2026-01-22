@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
 import { Eye, LogOut, FileSpreadsheet, Bell, Upload, Settings, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments, type Document } from '@/hooks/useDocuments';
@@ -64,6 +64,7 @@ const Index = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupChat, setShowGroupChat] = useState(false);
   const [activeMentions, setActiveMentions] = useState<{ type: string; id: string; label: string }[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   // User presence and friends
   const { friends, currentUser } = useUserPresence();
@@ -89,35 +90,67 @@ const Index = () => {
   // Refs for keyboard shortcuts
   const speechButtonRef = useRef<HTMLButtonElement>(null);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const loadingSessionRef = useRef<string | null>(null);
 
   // Load messages when session changes
   useEffect(() => {
+    // Clear loading ref if session is cleared
     if (!currentSessionId) {
+      loadingSessionRef.current = null;
+      setIsLoadingMessages(false);
       clearMessages();
       return;
     }
 
+    // Prevent loading if already loading this session
+    if (loadingSessionRef.current === currentSessionId) {
+      return;
+    }
+
+    // Mark this session as loading
+    loadingSessionRef.current = currentSessionId;
+    setIsLoadingMessages(true);
+
     const loadMessages = async () => {
+      // Double-check we're still loading the correct session
+      if (loadingSessionRef.current !== currentSessionId) {
+        return;
+      }
+
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('session_id', currentSessionId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error loading messages:', error);
+      // Check again after async operation to prevent race conditions
+      if (loadingSessionRef.current !== currentSessionId) {
         return;
       }
 
-      if (data) {
-        setMessages(data.map(msg => ({
-          id: msg.id,
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-          documentId: msg.document_id || undefined,
-          createdAt: new Date(msg.created_at),
-        })));
+      if (error) {
+        console.error('Error loading messages:', error);
+        loadingSessionRef.current = null;
+        setIsLoadingMessages(false);
+        setMessages([]);
+        return;
       }
+
+      // Update messages in a single batch to prevent flickering
+      const newMessages = data ? data.map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        documentId: msg.document_id || undefined,
+        createdAt: new Date(msg.created_at),
+      })) : [];
+
+      // Use startTransition to mark this as a non-urgent update, reducing flicker
+      startTransition(() => {
+        setMessages(newMessages);
+        setIsLoadingMessages(false);
+      });
+      loadingSessionRef.current = null;
     };
 
     loadMessages();
@@ -705,7 +738,7 @@ const Index = () => {
         {/* Chat Messages */}
         <ChatArea
           messages={messages}
-          isLoading={isLoading}
+          isLoading={isLoading || isLoadingMessages}
           hasDocuments={documents.length > 0}
           onSendMessage={handleSendMessage}
         />

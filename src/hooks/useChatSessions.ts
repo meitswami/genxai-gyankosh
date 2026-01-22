@@ -16,6 +16,14 @@ export function useChatSessions() {
 
   // Fetch all sessions for the current user
   const fetchSessions = useCallback(async () => {
+    // Check if user is authenticated before fetching
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      setSessions([]);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')
@@ -32,7 +40,42 @@ export function useChatSessions() {
   }, []);
 
   useEffect(() => {
-    fetchSessions();
+    // Wait for auth state to be ready before fetching
+    let mounted = true;
+    
+    const init = async () => {
+      // Wait for auth to initialize
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (mounted) {
+        if (session) {
+          await fetchSessions();
+        } else {
+          setLoading(false);
+          setSessions([]);
+        }
+      }
+    };
+
+    // Listen for auth changes and fetch when signed in
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
+        if (event === 'SIGNED_IN' && session) {
+          await fetchSessions();
+        } else if (event === 'SIGNED_OUT') {
+          setSessions([]);
+          setCurrentSessionId(null);
+          setLoading(false);
+        }
+      }
+    });
+
+    init();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchSessions]);
 
   // Create new session with user_id

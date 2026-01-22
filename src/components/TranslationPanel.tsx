@@ -54,6 +54,12 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
     setOutputText('');
     setKrutiDevOutput('');
 
+    // Create an AbortController for timeout
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 60000); // 60 second timeout
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -87,65 +93,138 @@ export function TranslationPanel({ initialText = '', onClose }: TranslationPanel
           sourceLanguage: activeTab === 'translate' ? sourceLanguage : undefined,
           inputText: processText,
         }),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Request failed: ${response.status}`);
+        // Try to parse error response
+        let errorMessage = `Request failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) errorMessage = errorText;
+          } catch {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      if (!response.body) throw new Error('No response body');
+      if (!response.body) {
+        throw new Error('No response body received from server');
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let fullResponse = '';
+      let hasReceivedData = false;
+      let lastDataTime = Date.now();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      try {
+        while (true) {
+          // Check for timeout during streaming (30 seconds of no data)
+          if (hasReceivedData && Date.now() - lastDataTime > 30000) {
+            throw new Error('Stream timeout: No data received for 30 seconds');
+          }
 
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullResponse += delta;
-              setOutputText(fullResponse);
-              
-              // Generate Kruti Dev version for Hindi output
-              if (targetLanguage === 'Hindi' || activeTab !== 'translate') {
-                setKrutiDevOutput(unicodeToKruti(fullResponse));
-              }
+          const { done, value } = await reader.read();
+          
+          if (done) {
+            if (!hasReceivedData && !fullResponse) {
+              throw new Error('Stream ended without any data');
             }
-          } catch {
-            buffer = line + '\n' + buffer;
             break;
           }
+
+          hasReceivedData = true;
+          lastDataTime = Date.now();
+          buffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex: number;
+          while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+            let line = buffer.slice(0, newlineIndex);
+            buffer = buffer.slice(newlineIndex + 1);
+
+            if (line.endsWith('\r')) line = line.slice(0, -1);
+            if (line.startsWith(':') || line.trim() === '') continue;
+            if (!line.startsWith('data: ')) continue;
+
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') {
+              // Stream completed successfully
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+              
+              // Check for error in response
+              if (parsed.error) {
+                throw new Error(parsed.error.message || parsed.error || 'API returned an error');
+              }
+
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullResponse += delta;
+                setOutputText(fullResponse);
+                
+                // Generate Kruti Dev version for Hindi output
+                if (targetLanguage === 'Hindi' || activeTab !== 'translate') {
+                  setKrutiDevOutput(unicodeToKruti(fullResponse));
+                }
+              }
+            } catch (parseError) {
+              // If JSON parse fails, it might be a malformed chunk
+              // Continue processing but log the error
+              console.warn('Failed to parse chunk:', jsonStr, parseError);
+              // Don't break, continue processing
+            }
+          }
+        }
+
+        if (!fullResponse) {
+          throw new Error('No content received from the API');
+        }
+
+        toast({
+          title: 'Success',
+          description: `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} completed`,
+        });
+      } catch (streamError) {
+        // If we have partial response, keep it
+        if (fullResponse) {
+          toast({
+            title: 'Partial response',
+            description: 'Received partial response before stream error',
+            variant: 'default',
+          });
+        } else {
+          throw streamError;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        reader.releaseLock();
+      }
+    } catch (error) {
+      console.error('Processing error:', error);
+      
+      let errorMessage = 'Processing failed';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please try again.';
+        } else {
+          errorMessage = error.message;
         }
       }
 
       toast({
-        title: 'Success',
-        description: `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} completed`,
-      });
-    } catch (error) {
-      console.error('Processing error:', error);
-      toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Processing failed',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
