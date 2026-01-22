@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { 
+import {
   User, Pencil, Trash2, Plus, Star, Upload, Building, Phone, Briefcase, Check,
   Shield, History, Plug, Key, Calendar, Activity, AlertTriangle, Copy, RefreshCw,
-  Globe, BookOpen
+  Globe, BookOpen, Cpu, Zap, Info
 } from 'lucide-react';
+import { ollama } from '@/lib/ollama';
 import { useUserSettings, type UserSignature } from '@/hooks/useUserSettings';
 import { useTwoFactor } from '@/hooks/useTwoFactor';
 import { useActivityLogs } from '@/hooks/useActivityLogs';
@@ -33,16 +34,16 @@ interface UserSettingsModalProps {
 
 export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userCreatedAt }: UserSettingsModalProps) {
   const { toast } = useToast();
-  const { 
-    settings, 
-    signatures, 
-    loading, 
-    updateSettings, 
-    addSignature, 
-    updateSignature, 
+  const {
+    settings,
+    signatures,
+    loading,
+    updateSettings,
+    addSignature,
+    updateSignature,
     deleteSignature,
     setDefaultSignature,
-    uploadLogo 
+    uploadLogo
   } = useUserSettings(userId);
 
   const { settings: twoFactorSettings, enableTwoFactor, disableTwoFactor } = useTwoFactor(userId);
@@ -93,12 +94,28 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
     }
   }, [settings]);
 
-  // Load activity logs when tab opens
+  // Load activity logs and Ollama models when tab opens
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [isCheckingOllama, setIsCheckingOllama] = useState(false);
+  const { settings: appSettings, updateLocalAiSettings } = useAppSettings();
+
   useEffect(() => {
     if (open) {
       fetchLogs(20);
+      checkOllama();
     }
   }, [open, fetchLogs]);
+
+  const checkOllama = async () => {
+    setIsCheckingOllama(true);
+    ollama.setBaseUrl(appSettings.local_ai.ollama_url);
+    const isConn = await ollama.checkConnection();
+    if (isConn) {
+      const models = await ollama.listModels();
+      setOllamaModels(models);
+    }
+    setIsCheckingOllama(false);
+  };
 
   const handleSaveProfile = async () => {
     await updateSettings(profileForm);
@@ -113,14 +130,14 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
 
   const handleAddSignature = async () => {
     if (!newSignature.name || !newSignature.content) return;
-    
+
     const success = await addSignature({
       name: newSignature.name,
       type: newSignature.type,
       content: newSignature.content,
       is_default: signatures.length === 0,
     });
-    
+
     if (success) {
       setNewSignature({ name: '', type: 'formal', content: '' });
       setShowNewSignatureForm(false);
@@ -129,7 +146,7 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
 
   const handleUpdateSignature = async () => {
     if (!editingSignature) return;
-    
+
     await updateSignature(editingSignature.id, {
       name: editingSignature.name,
       type: editingSignature.type,
@@ -231,6 +248,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
             </TabsTrigger>
             <TabsTrigger value="activity" className="gap-2">
               <History className="w-4 h-4" /> Activity
+            </TabsTrigger>
+            <TabsTrigger value="localai" className="gap-2">
+              <Cpu className="w-4 h-4" /> Local AI
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="admin" className="gap-2">
@@ -349,8 +369,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                   </p>
                 </div>
                 {signatures.length < 3 && (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => setShowNewSignatureForm(true)}
                     disabled={showNewSignatureForm}
                   >
@@ -376,9 +396,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                       <select
                         className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                         value={newSignature.type}
-                        onChange={e => setNewSignature(s => ({ 
-                          ...s, 
-                          type: e.target.value as 'formal' | 'semi-formal' | 'casual' 
+                        onChange={e => setNewSignature(s => ({
+                          ...s,
+                          type: e.target.value as 'formal' | 'semi-formal' | 'casual'
                         }))}
                       >
                         <option value="formal">Formal</option>
@@ -400,9 +420,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                     <Button size="sm" onClick={handleAddSignature}>
                       <Check className="w-4 h-4 mr-1" /> Save
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => {
                         setShowNewSignatureForm(false);
                         setNewSignature({ name: '', type: 'formal', content: '' });
@@ -417,8 +437,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
               {/* Existing Signatures */}
               <div className="space-y-3">
                 {signatures.map(sig => (
-                  <div 
-                    key={sig.id} 
+                  <div
+                    key={sig.id}
                     className="border border-border rounded-lg p-4 space-y-2"
                   >
                     {editingSignature?.id === sig.id ? (
@@ -431,9 +451,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                           <select
                             className="h-10 px-3 rounded-md border border-input bg-background text-sm"
                             value={editingSignature.type}
-                            onChange={e => setEditingSignature(s => s ? { 
-                              ...s, 
-                              type: e.target.value as 'formal' | 'semi-formal' | 'casual' 
+                            onChange={e => setEditingSignature(s => s ? {
+                              ...s,
+                              type: e.target.value as 'formal' | 'semi-formal' | 'casual'
                             } : null)}
                           >
                             <option value="formal">Formal</option>
@@ -469,9 +489,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                           </div>
                           <div className="flex gap-1">
                             {!sig.is_default && (
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 className="h-8 w-8"
                                 onClick={() => setDefaultSignature(sig.id)}
                                 title="Set as default"
@@ -479,17 +499,17 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                                 <Star className="w-4 h-4" />
                               </Button>
                             )}
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="h-8 w-8"
                               onClick={() => setEditingSignature(sig)}
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="h-8 w-8 text-destructive"
                               onClick={() => deleteSignature(sig.id)}
                             >
@@ -612,8 +632,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                     Connect external APIs to query with ! mention
                   </p>
                 </div>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => setShowNewIntegrationForm(true)}
                   disabled={showNewIntegrationForm}
                 >
@@ -672,9 +692,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                     <Button size="sm" onClick={handleAddIntegration}>
                       <Check className="w-4 h-4 mr-1" /> Add
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => {
                         setShowNewIntegrationForm(false);
                         setNewIntegration({ name: '', base_url: '', api_key_encrypted: '', description: '', icon: '🔌' });
@@ -689,8 +709,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
               {/* Existing Integrations */}
               <div className="space-y-3">
                 {integrations.map(int => (
-                  <div 
-                    key={int.id} 
+                  <div
+                    key={int.id}
                     className="border border-border rounded-lg p-4 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
@@ -714,9 +734,9 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                       >
                         <RefreshCw className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         className="h-8 w-8 text-destructive"
                         onClick={() => deleteIntegration(int.id)}
                       >
@@ -777,8 +797,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
 
               <div className="space-y-2">
                 {logs.map(log => (
-                  <div 
-                    key={log.id} 
+                  <div
+                    key={log.id}
                     className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                   >
                     <span className="text-lg">{getActionIcon(log.action)}</span>
@@ -805,7 +825,81 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
               </div>
             </TabsContent>
 
-            {/* Admin Tab - Only visible to test@genxai.com */}
+            {/* Local AI Tab */}
+            <TabsContent value="localai" className="p-6 space-y-6 mt-0">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Cpu className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Local AI (Ollama)</p>
+                      <p className="text-sm text-muted-foreground">
+                        Run models locally for 100% privacy and no cost
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={appSettings.local_ai.enabled}
+                    onCheckedChange={(checked) => updateLocalAiSettings({ enabled: checked })}
+                  />
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ollama_url">Ollama Base URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="ollama_url"
+                        placeholder="http://localhost:11434"
+                        value={appSettings.local_ai.ollama_url}
+                        onChange={(e) => updateLocalAiSettings({ ollama_url: e.target.value })}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={checkOllama}
+                        disabled={isCheckingOllama}
+                      >
+                        {isCheckingOllama ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Check'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ollama_model">Model Name</Label>
+                    <select
+                      id="ollama_model"
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                      value={appSettings.local_ai.model_name}
+                      onChange={(e) => updateLocalAiSettings({ model_name: e.target.value })}
+                    >
+                      {ollamaModels.length > 0 ? (
+                        ollamaModels.map(m => <option key={m} value={m}>{m}</option>)
+                      ) : (
+                        <option value={appSettings.local_ai.model_name}>{appSettings.local_ai.model_name} (Not found)</option>
+                      )}
+                    </select>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-500" />
+                      Recommended: llama3.1:8b or mistral
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 space-y-2">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <Info className="w-4 h-4" /> Setup Instructions
+                    </p>
+                    <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+                      <li>Install <a href="https://ollama.com" target="_blank" className="text-primary hover:underline">Ollama</a> on your computer</li>
+                      <li>Run <code>ollama run llama3.1</code> in your terminal</li>
+                      <li>Enable "Local AI" toggle above</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
             {isAdmin && (
               <TabsContent value="admin" className="p-6 space-y-6 mt-0">
                 <div className="space-y-4">
@@ -832,8 +926,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                         <p className="text-sm text-muted-foreground">
                           Allow all users to access the knowledge base without login
                         </p>
-                        <Badge 
-                          variant={isKBPublicAccessEnabled ? 'default' : 'secondary'} 
+                        <Badge
+                          variant={isKBPublicAccessEnabled ? 'default' : 'secondary'}
                           className="mt-1"
                         >
                           {isKBPublicAccessEnabled ? '🌐 Public Access ON' : '🔒 Login Required'}
@@ -849,8 +943,8 @@ export function UserSettingsModal({ open, onOpenChange, userId, userEmail, userC
                         if (success) {
                           toast({
                             title: checked ? 'Public Access Enabled' : 'Public Access Disabled',
-                            description: checked 
-                              ? 'Knowledge base is now accessible to everyone' 
+                            description: checked
+                              ? 'Knowledge base is now accessible to everyone'
                               : 'Users must login to access knowledge base',
                           });
                         } else {

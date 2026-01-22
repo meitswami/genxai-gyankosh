@@ -51,7 +51,7 @@ const Index = () => {
     deleteSession,
     generateTitle,
   } = useChatSessions();
-  
+
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState<UploadStage>('uploading');
@@ -64,28 +64,28 @@ const Index = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupChat, setShowGroupChat] = useState(false);
   const [activeMentions, setActiveMentions] = useState<{ type: string; id: string; label: string }[]>([]);
-  
+
   // User presence and friends
   const { friends, currentUser } = useUserPresence();
-  
+
   // API integrations
   const { integrations, callApi } = useApiIntegrations(user?.id || null);
-  
+
   // Web search
   const { search: webSearch, isSearching } = useWebSearch();
-  
+
   // Onboarding tour
   const { showTour, completeTour } = useOnboardingTour();
-  
+
   // Batch upload hook
   const { uploads, isUploading: isBatchUploading, uploadFiles, clearCompleted, cancelUpload } = useBatchUpload({
     maxConcurrent: 3,
     onComplete: () => refetch(),
   });
-  
+
   // Realtime view notifications
   const { notifications } = useViewNotifications(user?.id);
-  
+
   // Refs for keyboard shortcuts
   const speechButtonRef = useRef<HTMLButtonElement>(null);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
@@ -128,27 +128,27 @@ const Index = () => {
     setUploadFileName(file.name);
     setUploadStage('uploading');
     const startTime = Date.now();
-    
+
     try {
       let contentText = '';
-      
+
       // Stage 1: Uploading / Initial check
       const clientText = await extractTextFromFile(file);
-      
+
       // Stage 2: Extracting text
       setUploadStage('extracting');
-      
+
       if (clientText === 'REQUIRES_SERVER_PARSING') {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        
+
         if (!token) {
           throw new Error('Not authenticated. Please log in.');
         }
 
         const formData = new FormData();
         formData.append('file', file);
-        
+
         const parseResponse = await fetch(PARSE_URL, {
           method: 'POST',
           headers: {
@@ -156,18 +156,18 @@ const Index = () => {
           },
           body: formData,
         });
-        
+
         const parseResult = await parseResponse.json();
-        
+
         if (!parseResult.success) {
           throw new Error(parseResult.error || 'Failed to parse document');
         }
-        
+
         contentText = parseResult.content;
       } else {
         contentText = clientText;
       }
-      
+
       if (!contentText || contentText.length < 20) {
         throw new Error('Could not extract meaningful text from the document');
       }
@@ -178,7 +178,7 @@ const Index = () => {
       // Get fresh token for chat call
       const { data: { session: chatSession } } = await supabase.auth.getSession();
       const chatToken = chatSession?.access_token;
-      
+
       if (!chatToken) {
         throw new Error('Not authenticated. Please log in.');
       }
@@ -202,14 +202,14 @@ const Index = () => {
 
       const decoder = new TextDecoder();
       let fullResponse = '';
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n');
-        
+
         for (const line of lines) {
           if (line.startsWith('data: ') && line !== 'data: [DONE]') {
             try {
@@ -249,19 +249,19 @@ const Index = () => {
           alias: file.name.replace(/\.[^/.]+$/, '').slice(0, 30),
         };
       }
-      
+
       // Validate summary fields aren't JSON-like strings
       if (summary.summary.startsWith('```') || summary.summary.startsWith('{')) {
         summary.summary = 'Document ready for queries';
       }
 
       const savedDoc = await uploadDocument(file, contentText, summary);
-      
+
       if (savedDoc) {
         setUploadStage('complete');
         setSelectedDocument(savedDoc);
         const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        
+
         // Generate embeddings and tags in background
         (async () => {
           try {
@@ -279,7 +279,7 @@ const Index = () => {
                   documentId: savedDoc.id,
                 }),
               });
-              
+
               if (embedResponse.ok) {
                 const embedResult = await embedResponse.json();
                 console.log('Document embedded with tags:', embedResult.tags);
@@ -291,7 +291,7 @@ const Index = () => {
             console.error('Background embedding failed:', err);
           }
         })();
-        
+
         // Brief delay to show complete state
         setTimeout(() => {
           setIsUploading(false);
@@ -346,7 +346,7 @@ const Index = () => {
       try {
         const engine = searchMention.id === 'bing' ? 'bing' : 'google';
         let searchResult = '';
-        
+
         await webSearch(message, engine as 'google' | 'bing', (chunk) => {
           searchResult += chunk;
           // Update message in real-time
@@ -393,12 +393,12 @@ const Index = () => {
 
     // Allow global search when no document is selected (searches all documents)
     const isGlobalSearch = !selectedDocument;
-    
+
     let sessionId = currentSessionId;
 
     // Create new session if needed
     if (!sessionId) {
-      const title = isGlobalSearch 
+      const title = isGlobalSearch
         ? `🔍 ${generateTitle(message)}`
         : generateTitle(message);
       const newSession = await createSession(title);
@@ -406,7 +406,7 @@ const Index = () => {
       sessionId = newSession.id;
     } else if (messages.length === 0) {
       // Update title with first message
-      const title = isGlobalSearch 
+      const title = isGlobalSearch
         ? `🔍 ${generateTitle(message)}`
         : generateTitle(message);
       await updateSessionTitle(sessionId, title);
@@ -428,7 +428,7 @@ const Index = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        
+
         if (token) {
           const searchResponse = await fetch(SEMANTIC_SEARCH_URL, {
             method: 'POST',
@@ -441,13 +441,13 @@ const Index = () => {
               query: message,
             }),
           });
-          
+
           if (searchResponse.ok) {
             const { results } = await searchResponse.json();
             if (results && results.length > 0) {
               // Use semantically similar documents
               relevantDocs = results
-                .map((doc: { alias: string; content_text: string; similarity: number }) => 
+                .map((doc: { alias: string; content_text: string; similarity: number }) =>
                   `--- Document: ${doc.alias} (relevance: ${(doc.similarity * 100).toFixed(0)}%) ---\n${doc.content_text?.slice(0, 4000) || ''}`
                 )
                 .join('\n\n');
@@ -458,7 +458,7 @@ const Index = () => {
       } catch (err) {
         console.error('Semantic search failed, falling back to full search:', err);
       }
-      
+
       // Fallback to combining all docs if semantic search didn't work
       if (!relevantDocs) {
         relevantDocs = documents
@@ -466,7 +466,7 @@ const Index = () => {
           .map(doc => `--- Document: ${doc.alias} ---\n${doc.content_text?.slice(0, 3000) || ''}`)
           .join('\n\n');
       }
-      
+
       response = await sendMessage(message, {
         id: 'global',
         name: 'All Documents',
@@ -511,7 +511,7 @@ const Index = () => {
     }
 
     const userContent = `Generate ${count} FAQs from "${selectedDocument.alias}"`;
-    
+
     // Save user message to DB
     await supabase.from('chat_messages').insert({
       session_id: sessionId,
@@ -530,7 +530,7 @@ const Index = () => {
     }]);
 
     const response = await sendMessage('', selectedDocument, 'generateFaq', count);
-    
+
     // Save assistant response to DB
     if (response) {
       await supabase.from('chat_messages').insert({
@@ -552,6 +552,27 @@ const Index = () => {
     clearMessages();
     setSelectedDocument(null);
   }, [setCurrentSessionId, clearMessages]);
+
+  const handleToolAction = useCallback(async (
+    action: 'paraphrase' | 'grammar' | 'translate' | 'email' | 'letter',
+    content: string,
+    language?: string
+  ) => {
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      const title = `🪄 ${action.charAt(0).toUpperCase() + action.slice(1)}`;
+      const newSession = await createSession(title);
+      if (!newSession) return;
+      sessionId = newSession.id;
+    }
+
+    await sendMessage(content, selectedDocument, action, undefined, language);
+
+    toast({
+      title: `AI ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      description: 'Request processed successfully',
+    });
+  }, [currentSessionId, createSession, sendMessage, selectedDocument, toast]);
 
   const handleSelectSession = useCallback((id: string | null) => {
     setCurrentSessionId(id);
@@ -591,8 +612,8 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <h2 className="font-medium text-foreground truncate">
-                {selectedDocument 
-                  ? `Chatting with: ${selectedDocument.alias}` 
+                {selectedDocument
+                  ? `Chatting with: ${selectedDocument.alias}`
                   : documents.length > 0
                     ? '🔍 Searching across all documents'
                     : '💬 Ask me anything'
@@ -606,8 +627,8 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2 ml-4">
               {messages.length > 0 && (
-                <ChatExport 
-                  messages={messages} 
+                <ChatExport
+                  messages={messages}
                   sessionId={currentSessionId}
                   sessionTitle={sessions.find(s => s.id === currentSessionId)?.title}
                 />
@@ -629,7 +650,7 @@ const Index = () => {
                 onToggleVoice={() => speechButtonRef.current?.click()}
                 onTogglePreview={() => selectedDocument && setShowPreview(prev => !prev)}
                 onExport={() => exportButtonRef.current?.click()}
-                onToggleKnowledgeBase={() => {}}
+                onToggleKnowledgeBase={() => { }}
               />
               <Button
                 variant="outline"
@@ -682,10 +703,10 @@ const Index = () => {
         </header>
 
         {/* Chat Messages */}
-        <ChatArea 
-          messages={messages} 
-          isLoading={isLoading} 
-          hasDocuments={documents.length > 0} 
+        <ChatArea
+          messages={messages}
+          isLoading={isLoading}
+          hasDocuments={documents.length > 0}
           onSendMessage={handleSendMessage}
         />
 
@@ -697,15 +718,16 @@ const Index = () => {
           onSendMessage={handleSendMessage}
           onUploadFile={handleFileUpload}
           onGenerateFaq={handleGenerateFaq}
+          onToolAction={handleToolAction}
           isLoading={isLoading || isSearching}
           isUploading={isUploading}
           speechButtonRef={speechButtonRef}
           focusSearch={searchFocused}
           onSearchFocusHandled={() => setSearchFocused(false)}
-          friends={friends.map(f => ({ 
-            friend_id: f.user_id, 
-            display_name: f.display_name || undefined, 
-            email: undefined 
+          friends={friends.map(f => ({
+            friend_id: f.user_id,
+            display_name: f.display_name || undefined,
+            email: undefined
           }))}
           integrations={integrations}
           onMention={(type, id) => {

@@ -5,14 +5,38 @@ export interface AppSettings {
   kb_public_access: {
     enabled: boolean;
   };
+  local_ai: {
+    enabled: boolean;
+    ollama_url: string;
+    model_name: string;
+  };
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   kb_public_access: { enabled: false },
+  local_ai: {
+    enabled: false,
+    ollama_url: 'http://localhost:11434',
+    model_name: 'llama3.1',
+  },
 };
 
+const LOCAL_STORAGE_KEY = 'genxai_local_ai_settings';
+
 export function useAppSettings() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    // Initialize from localStorage if available
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_SETTINGS, local_ai: parsed };
+      } catch (e) {
+        console.error('Error parsing local AI settings:', e);
+      }
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -20,19 +44,19 @@ export function useAppSettings() {
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', ['kb_public_access']);
+        .eq('setting_key', 'kb_public_access')
+        .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "No rows found"
 
-      const newSettings = { ...DEFAULT_SETTINGS };
-      data?.forEach((row: { setting_key: string; setting_value: unknown }) => {
-        if (row.setting_key === 'kb_public_access') {
-          newSettings.kb_public_access = row.setting_value as { enabled: boolean };
-        }
-      });
-      setSettings(newSettings);
+      if (data) {
+        setSettings(prev => ({
+          ...prev,
+          kb_public_access: data.setting_value as { enabled: boolean }
+        }));
+      }
     } catch (error) {
-      console.error('Error fetching app settings:', error);
+      console.error('Error fetching global app settings:', error);
     } finally {
       setLoading(false);
     }
@@ -66,7 +90,7 @@ export function useAppSettings() {
     try {
       const { error } = await supabase
         .from('app_settings')
-        .update({ 
+        .update({
           setting_value: { enabled },
           updated_at: new Date().toISOString(),
         })
@@ -80,11 +104,25 @@ export function useAppSettings() {
     }
   }, []);
 
+  const updateLocalAiSettings = useCallback(async (localSettings: Partial<AppSettings['local_ai']>) => {
+    try {
+      const newValue = { ...settings.local_ai, ...localSettings };
+      setSettings(prev => ({ ...prev, local_ai: newValue }));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newValue));
+      return true;
+    } catch (error) {
+      console.error('Error updating local AI settings:', error);
+      return false;
+    }
+  }, [settings.local_ai]);
+
   return {
     settings,
     loading,
     updateKBPublicAccess,
+    updateLocalAiSettings,
     refetch: fetchSettings,
     isKBPublicAccessEnabled: settings.kb_public_access.enabled,
+    isLocalAiEnabled: settings.local_ai.enabled,
   };
 }

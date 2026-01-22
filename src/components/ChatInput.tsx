@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent, DragEvent, useCallback } from 'react';
-import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload, AtSign, Hash, Zap, Globe } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload, AtSign, Hash, Zap, Globe, Sparkles, Languages, Type, Mail, FileSignature } from 'lucide-react';
 import { getSupportedFileTypes, getSupportedFileTypesLabel } from '@/lib/documentParser';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +38,7 @@ interface ChatInputProps {
   onSendMessage: (message: string, mentions?: { type: string; id: string; label: string }[]) => void;
   onUploadFile: (file: File) => void;
   onGenerateFaq: (count: number) => void;
+  onToolAction?: (action: 'paraphrase' | 'grammar' | 'translate' | 'email' | 'letter', content: string, language?: string) => void;
   isLoading: boolean;
   isUploading: boolean;
   speechButtonRef?: React.RefObject<HTMLButtonElement>;
@@ -55,6 +56,7 @@ export function ChatInput({
   onSendMessage,
   onUploadFile,
   onGenerateFaq,
+  onToolAction,
   isLoading,
   isUploading,
   speechButtonRef,
@@ -76,6 +78,8 @@ export function ChatInput({
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const [mentionType, setMentionType] = useState<'@' | '#' | '!' | null>(null);
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
+  const [showToolsPopover, setShowToolsPopover] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState('English');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -111,7 +115,7 @@ export function ChatInput({
   useEffect(() => {
     const lastChar = message.slice(-1);
     const lastWord = message.split(/\s/).pop() || '';
-    
+
     if (lastChar === '@') {
       setMentionType('@');
       setMentionSearchTerm('');
@@ -149,9 +153,9 @@ export function ChatInput({
 
     if (mentionType === '@') {
       newSuggestions = friends
-        .filter(f => 
-          (f.display_name?.toLowerCase().includes(mentionSearchTerm) || 
-           f.email?.toLowerCase().includes(mentionSearchTerm))
+        .filter(f =>
+        (f.display_name?.toLowerCase().includes(mentionSearchTerm) ||
+          f.email?.toLowerCase().includes(mentionSearchTerm))
         )
         .slice(0, 5)
         .map(f => ({
@@ -163,7 +167,7 @@ export function ChatInput({
         }));
     } else if (mentionType === '#') {
       newSuggestions = documents
-        .filter(d => 
+        .filter(d =>
           d.alias.toLowerCase().includes(mentionSearchTerm) ||
           d.name.toLowerCase().includes(mentionSearchTerm)
         )
@@ -177,10 +181,10 @@ export function ChatInput({
         }));
     } else if (mentionType === '!') {
       const apiSuggestions = integrations
-        .filter(i => 
+        .filter(i =>
           i.is_active &&
           (i.name.toLowerCase().includes(mentionSearchTerm) ||
-           i.description?.toLowerCase().includes(mentionSearchTerm))
+            i.description?.toLowerCase().includes(mentionSearchTerm))
         )
         .slice(0, 3)
         .map(i => ({
@@ -206,18 +210,18 @@ export function ChatInput({
   const selectMentionSuggestion = useCallback((suggestion: MentionSuggestion) => {
     const triggerIndex = message.lastIndexOf(mentionType!);
     const newValue = message.slice(0, triggerIndex) + `${mentionType}${suggestion.label} `;
-    
+
     setMessage(newValue);
     setMentions(prev => [...prev, { type: suggestion.type, id: suggestion.id, label: suggestion.label }]);
     setShowMentionSuggestions(false);
     setMentionType(null);
-    
+
     // If it's a document mention, select it
     if (suggestion.type === 'document') {
       const doc = documents.find(d => d.id === suggestion.id);
       if (doc) onSelectDocument(doc);
     }
-    
+
     onMention?.(suggestion.type, suggestion.id);
     textareaRef.current?.focus();
   }, [message, mentionType, documents, onSelectDocument, onMention]);
@@ -360,7 +364,7 @@ export function ChatInput({
   const mentionHint = getMentionHint();
 
   return (
-    <div 
+    <div
       ref={dropZoneRef}
       className={cn(
         "border-t border-border bg-card/50 p-4 relative transition-all duration-200",
@@ -397,9 +401,9 @@ export function ChatInput({
         {mentions.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2 animate-fade-in">
             {mentions.map((m, i) => (
-              <Badge 
-                key={i} 
-                variant="secondary" 
+              <Badge
+                key={i}
+                variant="secondary"
                 className="gap-1 cursor-pointer hover:bg-destructive/20"
                 onClick={() => removeMention(i)}
               >
@@ -475,7 +479,7 @@ export function ChatInput({
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            
+
             {/* FAQ Generation Button */}
             <Popover open={showFaqPopover} onOpenChange={setShowFaqPopover}>
               <PopoverTrigger asChild>
@@ -501,6 +505,99 @@ export function ChatInput({
                       Generate
                     </Button>
                   </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* AI Quick Tools */}
+            <Popover open={showToolsPopover} onOpenChange={setShowToolsPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 border-primary/30 hover:bg-primary/5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  AI Tools
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="start">
+                <div className="grid grid-cols-1 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start gap-2 h-9"
+                    onClick={() => {
+                      onToolAction?.('paraphrase', message);
+                      setShowToolsPopover(false);
+                    }}
+                    disabled={!message.trim()}
+                  >
+                    <Type className="w-4 h-4" /> Paraphrase Text
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start gap-2 h-9"
+                    onClick={() => {
+                      onToolAction?.('grammar', message);
+                      setShowToolsPopover(false);
+                    }}
+                    disabled={!message.trim()}
+                  >
+                    <Zap className="w-4 h-4" /> Grammar Check
+                  </Button>
+                  <div className="border-t border-border my-1" />
+                  <div className="px-2 py-1.5 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Languages className="w-3 h-3" /> Translation
+                    </p>
+                    <div className="flex gap-2">
+                      <select
+                        className="flex-1 h-8 rounded border border-input bg-background px-2 text-xs"
+                        value={targetLanguage}
+                        onChange={(e) => setTargetLanguage(e.target.value)}
+                      >
+                        <option value="English">English</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="French">French</option>
+                        <option value="German">German</option>
+                        <option value="Bengali">Bengali</option>
+                        <option value="Marathi">Marathi</option>
+                      </select>
+                      <Button
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => {
+                          onToolAction?.('translate', message, targetLanguage);
+                          setShowToolsPopover(false);
+                        }}
+                        disabled={!message.trim()}
+                      >
+                        Translate
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="border-t border-border my-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start gap-2 h-9"
+                    onClick={() => {
+                      onToolAction?.('email', message);
+                      setShowToolsPopover(false);
+                    }}
+                  >
+                    <Mail className="w-4 h-4" /> Write Email
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start gap-2 h-9"
+                    onClick={() => {
+                      onToolAction?.('letter', message);
+                      setShowToolsPopover(false);
+                    }}
+                  >
+                    <FileSignature className="w-4 h-4" /> Write Letter
+                  </Button>
                 </div>
               </PopoverContent>
             </Popover>
@@ -568,7 +665,7 @@ export function ChatInput({
               placeholder={
                 selectedDocument
                   ? `Ask about ${selectedDocument.alias}...`
-                  : documents.length > 0 
+                  : documents.length > 0
                     ? "Ask anything across your knowledge base..."
                     : "Ask me anything... (or upload docs for your knowledge base)"
               }
@@ -610,8 +707,8 @@ export function ChatInput({
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          <span className="font-mono text-primary">@</span> friends • 
-          <span className="font-mono text-primary ml-1">#</span> documents • 
+          <span className="font-mono text-primary">@</span> friends •
+          <span className="font-mono text-primary ml-1">#</span> documents •
           <span className="font-mono text-primary ml-1">!</span> APIs & web search •
           <span className="ml-1">🎤 voice • 📎 upload</span>
         </p>
