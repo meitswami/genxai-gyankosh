@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent, DragEvent, useCallback } from 'react';
-import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload, AtSign, Hash, Zap, Globe, Sparkles, Languages, Type, Mail, FileSignature } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Loader2, ListOrdered, Upload, AtSign, Hash, Zap, Globe, Sparkles, Languages, Type, Mail, FileSignature, PenTool } from 'lucide-react';
 import { getSupportedFileTypes, getSupportedFileTypesLabel } from '@/lib/documentParser';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,13 +10,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { Document } from '@/hooks/useDocuments';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { SpeechButton } from '@/components/SpeechButton';
 import { useToast } from '@/hooks/use-toast';
 import type { ApiIntegration } from '@/hooks/useApiIntegrations';
-
+import { TranslationPanel } from '@/components/TranslationPanel';
 interface Friend {
   friend_id: string;
   display_name?: string;
@@ -79,6 +85,7 @@ export function ChatInput({
   const [mentionType, setMentionType] = useState<'@' | '#' | '!' | null>(null);
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [showToolsPopover, setShowToolsPopover] = useState(false);
+  const [showTranslationPanel, setShowTranslationPanel] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState('English');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -601,6 +608,23 @@ export function ChatInput({
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* Translation & Language Tools Dialog */}
+            <Dialog open={showTranslationPanel} onOpenChange={setShowTranslationPanel}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 border-accent/50 hover:bg-accent/10">
+                  <Languages className="w-3.5 h-3.5 text-accent" />
+                  Translate
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl p-0 overflow-hidden">
+                <DialogTitle className="sr-only">Translation & Language Tools</DialogTitle>
+                <TranslationPanel 
+                  initialText={message} 
+                  onClose={() => setShowTranslationPanel(false)} 
+                />
+              </DialogContent>
+            </Dialog>
           </div>
         )}
 
@@ -706,12 +730,24 @@ export function ChatInput({
         </div>
 
         {/* Hint */}
-        <p className="text-xs text-muted-foreground mt-2 text-center">
-          <span className="font-mono text-primary">@</span> friends •
-          <span className="font-mono text-primary ml-1">#</span> documents •
-          <span className="font-mono text-primary ml-1">!</span> APIs & web search •
-          <span className="ml-1">🎤 voice • 📎 upload</span>
-        </p>
+        <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-mono text-primary">@</span> friends •
+            <span className="font-mono text-primary ml-1">#</span> documents •
+            <span className="font-mono text-primary ml-1">!</span> web search •
+            <span className="ml-1">🎤 voice • 📎 upload</span>
+          </p>
+          {/* Quick access to Translation Panel */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-primary px-2"
+            onClick={() => setShowTranslationPanel(true)}
+          >
+            <Languages className="w-3 h-3" />
+            Translate / Paraphrase
+          </Button>
+        </div>
       </div>
     </div>
   );
