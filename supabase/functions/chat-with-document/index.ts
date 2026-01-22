@@ -46,7 +46,7 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
     console.log(`Authenticated request from user: ${userId}`);
 
-    const { messages, documentContent, documentName, action, faqCount } = await req.json();
+    const { messages, documentContent, documentName, action, faqCount, targetLanguage, sourceLanguage, inputText } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -56,7 +56,54 @@ serve(async (req) => {
     let systemPrompt = "";
     let userMessages = messages || [];
 
-    if (action === "summarize") {
+    // Language Tools Actions
+    if (action === "translate") {
+      systemPrompt = `You are an expert multilingual translator specializing in English, Hindi, and Hinglish translations.
+
+CRITICAL REQUIREMENTS:
+- Translate with 100% accuracy preserving the exact meaning and context
+- Maintain formal/informal tone as in the original
+- For Hindi output, use proper Unicode Devanagari script (नहीं Romanized)
+- For Hinglish, mix Hindi and English naturally as spoken in India
+- Preserve formatting, punctuation, and paragraph structure
+- Handle technical terms appropriately
+- For proper nouns, keep them as-is unless there's a common Hindi equivalent
+
+SOURCE LANGUAGE: ${sourceLanguage || 'Auto-detect'}
+TARGET LANGUAGE: ${targetLanguage || 'Hindi'}
+
+Translate the following text accurately. Output ONLY the translated text, no explanations.`;
+      userMessages = [{ role: "user", content: inputText }];
+    } else if (action === "paraphrase") {
+      systemPrompt = `You are an expert paraphrasing assistant for Hindi, English, and Hinglish text.
+
+CRITICAL REQUIREMENTS:
+- Rewrite the text completely while preserving the exact meaning
+- Use different vocabulary and sentence structures
+- Maintain the same language as input (Hindi stays Hindi, English stays English)
+- For Hindi, use proper Unicode Devanagari script
+- Keep the same formality level
+- Preserve important terms and proper nouns
+- Make the text flow naturally
+- 100% accuracy in meaning preservation is mandatory
+
+Output ONLY the paraphrased text, no explanations or comparisons.`;
+      userMessages = [{ role: "user", content: inputText }];
+    } else if (action === "grammar") {
+      systemPrompt = `You are an expert grammar checker for Hindi, English, and Hinglish text.
+
+CRITICAL REQUIREMENTS:
+- Fix all grammar, spelling, and punctuation errors
+- Maintain the original meaning exactly
+- Keep the same language (Hindi stays Hindi, etc.)
+- For Hindi, ensure proper Unicode Devanagari spelling and grammar
+- Fix verb agreements, tense consistency, and sentence structure
+- Preserve the author's style and tone
+- 100% accuracy required
+
+Output ONLY the corrected text. If there are significant errors, you may add a brief note at the end after "---" explaining the main corrections made.`;
+      userMessages = [{ role: "user", content: inputText }];
+    } else if (action === "summarize") {
       systemPrompt = `You are an expert document analyzer. Analyze the provided document content and return a JSON response.
 
 Your task:
