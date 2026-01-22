@@ -37,6 +37,7 @@
 - **🏷️ AI-Generated Tags**: Automatic categorization and tagging
 - **📊 Document Comparison**: Side-by-side AI analysis
 - **🔗 Sharing**: Public links with view tracking
+- **🌐 Whole Document Translation**: Translate entire documents (PDF, DOCX, etc.) while preserving formatting, layout, and indentation. Download as Word (.docx) ready for copy-paste
 
 ### 💬 AI Chat & Smart Mentions
 - **🌐 Global Search**: Query across entire knowledge base
@@ -48,6 +49,7 @@
 - **🎤 Voice Input**: Hindi and English speech-to-text
 - **📝 FAQ Generation**: Auto-generate FAQs from documents
 - **💡 AI Suggestions**: Follow-up question recommendations
+- **🔤 Language Tools**: Translate, Paraphrase, and Grammar check with real-time streaming and proper error handling
 
 ### 🔐 E2E Encrypted Group Chat
 - **👥 Multi-Participant**: Create groups with multiple members
@@ -165,6 +167,15 @@ Type these triggers in the chat input:
 2. Ask AI: "Write a formal letter requesting leave"
 3. AI auto-fills date, salutation, and your signature
 
+### Document Translation
+1. Click "Document Translation" button in chat interface
+2. Upload your document (PDF, DOCX, DOC, TXT, MD)
+3. Select source and target languages (English, Hindi, Hinglish)
+4. Click "Translate Document" and wait for processing
+5. Preview translated content and download as Word (.docx)
+6. The downloaded document preserves formatting, layout, and structure
+7. Ready for direct copy-paste into any Word document
+
 ### Settings & Security
 - Click ⚙️ Settings in header
 - **Profile**: Name, company, logo for templates
@@ -193,6 +204,28 @@ Only the admin user (test@genxai.com) can access the Admin tab in Settings:
 - **E2E Encryption**: Messages never readable by server
 - **Group Key Encryption**: Per-group AES keys wrapped with RSA
 - **Audit Logs**: Complete activity tracking
+
+## 🆕 Recent Updates
+
+### Bug Fixes & Improvements
+- **Fixed Language Tools Loading Issue**: Resolved stuck loading state in Translate, Paraphrase, and Grammar functions. Added proper request cancellation, timeout handling, and resource cleanup to prevent memory leaks.
+- **Fixed Chat History Loading**: Fixed issue where old chats would show only loading state. Improved loading state management with synchronous clearing and proper race condition handling.
+- **Fixed TypeScript Configuration**: Removed unnecessary vitest types reference from `tsconfig.app.json` to resolve compilation errors.
+
+### New Features
+- **Whole Document Translation**: 
+  - Upload entire documents (PDF, DOCX, DOC, TXT, MD) and translate them while preserving formatting
+  - Maintains paragraph structure, headings, lists, and indentation
+  - Download translated content as formatted Word (.docx) documents
+  - Supports Hindi, English, and Hinglish translations
+  - Accessible via "Document Translation" button in chat interface
+  - Similar to ChatGPT's document translation feature with formatting preservation
+
+### Technical Improvements
+- Enhanced error handling and timeout mechanisms for streaming responses
+- Improved resource cleanup to prevent memory leaks
+- Better loading state management across components
+- Optimized document translation prompts for formatting preservation
 
 ## 📄 License
 

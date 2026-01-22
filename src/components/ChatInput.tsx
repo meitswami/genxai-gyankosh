@@ -23,6 +23,7 @@ import { SpeechButton } from '@/components/SpeechButton';
 import { useToast } from '@/hooks/use-toast';
 import type { ApiIntegration } from '@/hooks/useApiIntegrations';
 import { TranslationPanel } from '@/components/TranslationPanel';
+import { DocumentTranslationPanel } from '@/components/DocumentTranslationPanel';
 interface Friend {
   friend_id: string;
   display_name?: string;
@@ -86,6 +87,7 @@ export function ChatInput({
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [showToolsPopover, setShowToolsPopover] = useState(false);
   const [showTranslationPanel, setShowTranslationPanel] = useState(false);
+  const [showDocumentTranslationPanel, setShowDocumentTranslationPanel] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState('English');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -763,6 +765,27 @@ export function ChatInput({
               <TranslationPanel 
                 initialText={message} 
                 onClose={() => setShowTranslationPanel(false)} 
+              />
+            </DialogContent>
+          </Dialog>
+          
+          {/* Document Translation */}
+          <Dialog open={showDocumentTranslationPanel} onOpenChange={setShowDocumentTranslationPanel}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs gap-1 text-muted-foreground hover:text-primary px-2"
+                title="Translate entire document while preserving formatting"
+              >
+                <FileText className="w-3 h-3" />
+                Document Translation
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl p-0 overflow-hidden">
+              <DialogTitle className="sr-only">Document Translation</DialogTitle>
+              <DocumentTranslationPanel 
+                onClose={() => setShowDocumentTranslationPanel(false)} 
               />
             </DialogContent>
           </Dialog>

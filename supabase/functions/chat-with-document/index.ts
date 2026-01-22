@@ -107,6 +107,9 @@ serve(async (req) => {
 
     // Language Tools Actions
     if (action === "translate") {
+      // Check if this is a document translation (has documentName)
+      const isDocumentTranslation = documentName && documentName.length > 0;
+      
       systemPrompt = `You are an expert multilingual translator specializing in English, Hindi, and Hinglish translations.
 
 CRITICAL REQUIREMENTS:
@@ -117,6 +120,15 @@ CRITICAL REQUIREMENTS:
 - Preserve formatting, punctuation, and paragraph structure
 - Handle technical terms appropriately
 - For proper nouns, keep them as-is unless there's a common Hindi equivalent
+${isDocumentTranslation ? `
+DOCUMENT TRANSLATION MODE:
+- Preserve ALL paragraph breaks and line structure exactly as in the original
+- Maintain heading hierarchy and section breaks
+- Keep lists, bullet points, and numbered items in their original format
+- Preserve indentation and spacing where possible
+- Maintain document structure (titles, subtitles, body text)
+- Output should be ready for direct copy-paste into Word documents
+` : ''}
 
 SOURCE LANGUAGE: ${sourceLanguage || 'Auto-detect'}
 TARGET LANGUAGE: ${targetLanguage || 'Hindi'}
